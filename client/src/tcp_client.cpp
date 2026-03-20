@@ -49,5 +49,4 @@ void TCPClient::run() {
         std::cout << std::endl;
         send(clientSocket, buffer, strlen(buffer), 0);
     }
-    
 }
