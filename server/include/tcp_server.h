@@ -36,4 +36,8 @@ private:
     void run();
     bool clientHandle(int sock);
     void clientDisconnect(int clientSocket);
+    bool sendAll(int sock, const void* data, size_t size);
+    bool sendPacket(int sock, const std::string& data);
+    bool recvAll(int sock, void* buffer, size_t size);
+    bool recvPacket(int sock, std::string &data);
 };

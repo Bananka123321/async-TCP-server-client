@@ -35,22 +35,23 @@ bool TCPClient::setupSocket() {
     }
     
     std::string msg = protocol::makeLogin(login);
-    send(clientSocket, msg.c_str(), msg.size(), 0);
+    if (!sendPacket(clientSocket, msg)) {
+        std::cerr << "Failed to set login\n";
+        return false;
+    }
     std::cout << "You successfully connected to!!\n";
     return true;    
 }
 
 void TCPClient::run() {
     std::thread read([this]() {
-        char buffer[16384];
         json j;
         std::string type;
+        std::string msg;
         while (true) {
-            int bytes = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
-            if (bytes <= 0) break;
-            buffer[bytes] = '\0';
-
-            j = json::parse(buffer);
+            if (!recvPacket(clientSocket, msg)) break;
+            
+            j = json::parse(msg);
             type = j["type"];
             
             if (type == "broadcastMessage")
@@ -76,19 +77,65 @@ void TCPClient::run() {
                     to = std::string(text).substr(1, space - 1);
                     body = std::string(text).substr(space + 1);
                     message  = protocol::privateMessage(login, to, body);
-                    // std::cout << login << ' ' << to << ' ' << body << std::endl;
                 } else {
                     std::cout << "WRONG PROTOCOL FORMAT";
                     continue; //wrong format
                 }
             } else {
-                message = protocol::broadcastMessage(text);
+                message = protocol::broadcastMessage(login, text);
             }
 
-            if (send(clientSocket, message.c_str(), message.size(), 0) <= 0) break;
+            if (!sendPacket(clientSocket, message)) break;
         }
     });
 
     read.join();
     write.join();    
+}
+
+bool TCPClient::sendAll(int sock, const void* data, size_t size) {
+    size_t total = 0;
+    int sent;
+    while (total < size) {
+        sent = send(sock, (char*)data + total, size - total, 0);
+        if (sent <= 0) return false;
+        total += sent;
+    }
+
+    return true;
+}
+
+bool TCPClient::sendPacket(int sock, const std::string& data) {
+    uint32_t len = htonl(data.size());
+
+    if (!sendAll(sock, &len, sizeof(len)))
+        return false;
+
+    if (!sendAll(sock, data.data(), data.size()))
+        return false;
+
+    return true;
+}
+
+bool TCPClient::recvAll(int sock, void* data, size_t size) {
+    size_t total = 0;
+    int bytes;
+    while (total < size) {
+        bytes = recv(sock, (char*)data + total, size - total, 0);
+        if (bytes <= 0) return false;
+        total += bytes;
+    }
+
+    return true;
+}
+
+bool TCPClient::recvPacket(int sock, std::string &data) {
+    uint32_t len;
+    if (!recvAll(sock, &len, sizeof(len))) return false;
+
+    len = ntohl(len);
+    data.resize(len);
+
+    if (!recvAll(sock, data.data(), len)) return false;
+    return true;
 }
