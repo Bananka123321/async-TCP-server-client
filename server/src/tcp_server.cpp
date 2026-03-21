@@ -68,25 +68,17 @@ void TCPServer::run() {
 }
 
 bool TCPServer::clientHandle(int sock) {
-    char buffer[16384];
-    int bytes_received;
     std::vector<int> clientsCopy;
     json j;
     std::string msgType;
+    std::string msg;
     while (true) {
-        bytes_received = recv(sock, buffer, sizeof(buffer) - 1, 0);
-        
-        if (bytes_received == 0){
-            // std::cout << "Client was disconnected from server...\n";
-            return true;
-        } else if (bytes_received == -1) {
-            std::cerr << "Poka hz che proizoshlo...\n";
+        if (!recvPacket(sock,msg)) {
+            clientDisconnect(sock);
             return false;
         }
-
-        buffer[bytes_received] = '\0';
         
-        j = json::parse(buffer);
+        j = json::parse(msg);
         msgType = j["type"];
         if (msgType == "login") { //user was logging
             {
@@ -102,7 +94,7 @@ bool TCPServer::clientHandle(int sock) {
 
             for (int socket : clientsCopy) {
                 if (socket == sock) continue;
-                if (send(socket, buffer, bytes_received, 0) == -1) {
+                if (!sendPacket(socket, msg)) {
                     std::cerr << "Ny tyt nado chto-to delat posle raboti s bd\n";
                     clientDisconnect(socket);
                 };
@@ -115,7 +107,7 @@ bool TCPServer::clientHandle(int sock) {
             
             if (it == userToSocket.end()) continue;
 
-            if (send(it->second, buffer, bytes_received, 0) == -1) {
+            if (!sendPacket(it->second, msg)) {
                 std::cerr << "Ny tyt nado chto-to delat posle raboti s bd\n";
                 clientDisconnect(it->second);
             };
@@ -146,4 +138,51 @@ void TCPServer::clientDisconnect(int clientSocket) {
 
     close(clientSocket);
     std::cout << "CLIENT WAS DISCONNECTED!\n";
+}
+
+bool TCPServer::sendAll(int sock, const void* data, size_t size) {
+    size_t total = 0;
+    int sent;
+    while (total < size) {
+        sent = send(sock, (char*)data + total, size - total, 0);
+        if (sent <= 0) return false;
+        total += sent;
+    }
+
+    return true;
+}
+
+bool TCPServer::sendPacket(int sock, const std::string& data) {
+    uint32_t len = htonl(data.size());
+
+    if (!sendAll(sock, &len, sizeof(len)))
+        return false;
+
+    if (!sendAll(sock, data.data(), data.size()))
+        return false;
+
+    return true;
+}
+
+bool TCPServer::recvAll(int sock, void* data, size_t size) {
+    size_t total = 0;
+    int bytes;
+    while (total < size) {
+        bytes = recv(sock, (char*)data + total, size - total, 0);
+        if (bytes <= 0) return false;
+        total += bytes;
+    }
+
+    return true;
+}
+
+bool TCPServer::recvPacket(int sock, std::string &data) {
+    uint32_t len;
+    if (!recvAll(sock, &len, sizeof(len))) return false;
+
+    len = ntohl(len);
+    data.resize(len);
+
+    if (!recvAll(sock, data.data(), len)) return false;
+    return true;
 }

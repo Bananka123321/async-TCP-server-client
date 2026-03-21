@@ -6,9 +6,10 @@
 using json = nlohmann::json;
 
 namespace protocol {
-    inline std::string broadcastMessage(const std::string& text) {
+    inline std::string broadcastMessage(const std::string& sender, const std::string& text) {
         json j;
         j["type"] = "broadcastMessage";
+        j["from"] = sender;
         j["text"] = text;
         return j.dump();
     }
