@@ -6,10 +6,14 @@
 #include <thread>
 #include <mutex>
 #include <algorithm>
+#include <unordered_map>
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
+
+#include "../../common/protocol.h"
 
 class TCPServer
 {
@@ -22,8 +26,11 @@ public:
 private:
     int port;
     int serverSocket;
-    std::vector<int> clients;
+    std::vector<int> clients; //Mb using later
+    std::unordered_map<std::string, int> userToSocket;
+    std::unordered_map<int, std::string> socketToUser;
     std::mutex clientsMutex;
+    std::mutex usersMutex;
 
     bool setupSocket();
     void run();
