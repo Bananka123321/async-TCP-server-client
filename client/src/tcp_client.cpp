@@ -33,31 +33,59 @@ bool TCPClient::setupSocket() {
         std::cerr << "Connect failed\n";
         return false;
     }
-  
+    
+    std::string msg = protocol::makeLogin(login);
+    send(clientSocket, msg.c_str(), msg.size(), 0);
     std::cout << "You successfully connected to!!\n";
     return true;    
 }
 
 void TCPClient::run() {
-    char buffer[16384];
-    recv(clientSocket, buffer, sizeof(buffer), 0);
-    std::cout << buffer << std::endl;// Begin message from server
-
     std::thread read([this]() {
         char buffer[16384];
+        json j;
+        std::string type;
         while (true) {
-            int bytes = recv(clientSocket, buffer, sizeof(buffer)-1, 0);
+            int bytes = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
             if (bytes <= 0) break;
             buffer[bytes] = '\0';
-            std::cout << buffer << std::endl;
+
+            j = json::parse(buffer);
+            type = j["type"];
+            
+            if (type == "broadcastMessage")
+                std::cout << "[" << j["from"] << "] " << j["text"] << std::endl;
+            
+                else if (type == "privateMessage")
+                std::cout << "(private) [" << j["from"] << "] " << j["text"] << std::endl;
         }
     });
 
     std::thread write([this]() {
-        char buffer[16384];
+        char text[16384];
         while (true) {
-            std::cin.getline(buffer, sizeof(buffer));
-            if (send(clientSocket, buffer, strlen(buffer), 0) <= 0) break;
+            std::cin.getline(text, sizeof(text));
+            std::string message, to, body;
+
+            //private message will started with #
+            //broadcast message will started without #
+
+            if (text[0] == '#') {
+                int space = std::string(text).find_first_of(' ');
+                if (space != std::string::npos) {
+                    to = std::string(text).substr(1, space - 1);
+                    body = std::string(text).substr(space + 1);
+                    message  = protocol::privateMessage(login, to, body);
+                    // std::cout << login << ' ' << to << ' ' << body << std::endl;
+                } else {
+                    std::cout << "WRONG PROTOCOL FORMAT";
+                    continue; //wrong format
+                }
+            } else {
+                message = protocol::broadcastMessage(text);
+            }
+
+            if (send(clientSocket, message.c_str(), message.size(), 0) <= 0) break;
         }
     });
 
