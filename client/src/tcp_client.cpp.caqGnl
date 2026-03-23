@@ -3,20 +3,10 @@
 TCPClient::TCPClient(int port) : port(port), clientSocket(-1) {}
 
 TCPClient::~TCPClient() {
-    if (clientSocket != -1) {
-        #ifdef _WIN32
-                closesocket(clientSocket);
-        #else
-                close(clientSocket);
-        #endif
-    }
+    if (clientSocket != -1) close(clientSocket);    
 }
 
 bool TCPClient::start() {
-    #ifdef _WIN32
-        WSADATA wsa;
-        WSAStartup(MAKEWORD(2,2), &wsa);
-    #endif
     if (!setupSocket()) return false;
     run();
 
@@ -65,6 +55,14 @@ void TCPClient::run() {
             }
             j = json::parse(msg);
             if (onMessage) onMessage(msg);
+            
+            type = j["type"];
+            
+            if (type == "broadcastMessage")
+                std::cout << "[" << j["from"] << "] " << j["text"] << std::endl;
+            
+                else if (type == "privateMessage")
+                std::cout << "(private) [" << j["from"] << "] " << j["text"] << std::endl;
         }
     });
     read.join();  
@@ -119,8 +117,4 @@ bool TCPClient::recvPacket(int sock, std::string &data) {
 
 void TCPClient::sendMessage(const std::string& msg) {
     sendPacket(clientSocket, msg);
-}
-
-void TCPClient::setLogin(const std::string& l) {
-    login = l;
 }
