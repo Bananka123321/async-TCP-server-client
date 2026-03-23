@@ -1,9 +1,0 @@
-/media/sf_TPU_PC/Education Project/Ivan_messanger/GUI/build/Linux-release/CMakeFiles/GUI.dir
-/media/sf_TPU_PC/Education Project/Ivan_messanger/GUI/build/Linux-release/CMakeFiles/edit_cache.dir
-/media/sf_TPU_PC/Education Project/Ivan_messanger/GUI/build/Linux-release/CMakeFiles/rebuild_cache.dir
-/media/sf_TPU_PC/Education Project/Ivan_messanger/GUI/build/Linux-release/CMakeFiles/list_install_components.dir
-/media/sf_TPU_PC/Education Project/Ivan_messanger/GUI/build/Linux-release/CMakeFiles/install.dir
-/media/sf_TPU_PC/Education Project/Ivan_messanger/GUI/build/Linux-release/CMakeFiles/install/local.dir
-/media/sf_TPU_PC/Education Project/Ivan_messanger/GUI/build/Linux-release/CMakeFiles/install/strip.dir
-/media/sf_TPU_PC/Education Project/Ivan_messanger/GUI/build/Linux-release/CMakeFiles/GUI_autogen_timestamp_deps.dir
-/media/sf_TPU_PC/Education Project/Ivan_messanger/GUI/build/Linux-release/CMakeFiles/GUI_autogen.dir
