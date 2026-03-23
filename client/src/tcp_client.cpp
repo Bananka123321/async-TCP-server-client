@@ -3,10 +3,20 @@
 TCPClient::TCPClient(int port) : port(port), clientSocket(-1) {}
 
 TCPClient::~TCPClient() {
-    if (clientSocket != -1) close(clientSocket);    
+    if (clientSocket != -1) {
+        #ifdef _WIN32
+                closesocket(clientSocket);
+        #else
+                close(clientSocket);
+        #endif
+    }
 }
 
 bool TCPClient::start() {
+    #ifdef _WIN32
+        WSADATA wsa;
+        WSAStartup(MAKEWORD(2,2), &wsa);
+    #endif
     if (!setupSocket()) return false;
     run();
 
@@ -49,48 +59,15 @@ void TCPClient::run() {
         std::string type;
         std::string msg;
         while (true) {
-            if (!recvPacket(clientSocket, msg)) break;
-            
-            j = json::parse(msg);
-            type = j["type"];
-            
-            if (type == "broadcastMessage")
-                std::cout << "[" << j["from"] << "] " << j["text"] << std::endl;
-            
-                else if (type == "privateMessage")
-                std::cout << "(private) [" << j["from"] << "] " << j["text"] << std::endl;
-        }
-    });
-
-    std::thread write([this]() {
-        char text[16384];
-        while (true) {
-            std::cin.getline(text, sizeof(text));
-            std::string message, to, body;
-
-            //private message will started with #
-            //broadcast message will started without #
-
-            if (text[0] == '#') {
-                int space = std::string(text).find_first_of(' ');
-                if (space != std::string::npos) {
-                    to = std::string(text).substr(1, space - 1);
-                    body = std::string(text).substr(space + 1);
-                    message  = protocol::privateMessage(login, to, body);
-                } else {
-                    std::cout << "WRONG PROTOCOL FORMAT";
-                    continue; //wrong format
-                }
-            } else {
-                message = protocol::broadcastMessage(login, text);
+            if (!recvPacket(clientSocket, msg)){
+                std::cout << "SERVER IS NOT RUNNING" << std::endl;
+                break;
             }
-
-            if (!sendPacket(clientSocket, message)) break;
+            j = json::parse(msg);
+            if (onMessage) onMessage(msg);
         }
     });
-
-    read.join();
-    write.join();    
+    read.join();  
 }
 
 bool TCPClient::sendAll(int sock, const void* data, size_t size) {
@@ -138,4 +115,12 @@ bool TCPClient::recvPacket(int sock, std::string &data) {
 
     if (!recvAll(sock, data.data(), len)) return false;
     return true;
+}
+
+void TCPClient::sendMessage(const std::string& msg) {
+    sendPacket(clientSocket, msg);
+}
+
+void TCPClient::setLogin(const std::string& l) {
+    login = l;
 }

@@ -31,6 +31,7 @@ private:
     std::unordered_map<int, std::string> socketToUser;
     std::mutex clientsMutex;
     std::mutex usersMutex;
+    std::vector<std::string> users;
 
     bool setupSocket();
     void run();
@@ -40,4 +41,5 @@ private:
     bool sendPacket(int sock, const std::string& data);
     bool recvAll(int sock, void* buffer, size_t size);
     bool recvPacket(int sock, std::string &data);
+    void getAllUsers();
 };

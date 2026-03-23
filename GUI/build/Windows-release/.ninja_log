@@ -1,0 +1,18 @@
+# ninja log v7
+4	557	7958671933875958	GUI_autogen/timestamp	fa53d64bac3fea33
+4	557	7958671933875958	GUI_autogen/mocs_compilation.cpp	fa53d64bac3fea33
+4	557	7958671933875958	Z:/TPU/Education Project/Ivan_messanger/GUI/build/Windows-release/GUI_autogen/timestamp	fa53d64bac3fea33
+4	557	7958671933875958	Z:/TPU/Education Project/Ivan_messanger/GUI/build/Windows-release/GUI_autogen/mocs_compilation.cpp	fa53d64bac3fea33
+561	3051	7958671934225880	CMakeFiles/GUI.dir/GUI_autogen/mocs_compilation.cpp.obj	8f439cc82753edeb
+561	3208	7958671934230963	CMakeFiles/GUI.dir/main.cpp.obj	51ec5c7fac40df
+562	3886	7958671934241169	CMakeFiles/GUI.dir/Z_/TPU/Education_Project/Ivan_messanger/client/src/tcp_client.cpp.obj	3190b8ad5dc71103
+562	5224	7958671934236082	CMakeFiles/GUI.dir/mainwindow.cpp.obj	6d997a53352c7c66
+5225	5307	7958671980865598	GUI.exe	7cd9a7a174ebaf79
+8	543	7958712862086413	GUI_autogen/timestamp	fa53d64bac3fea33
+8	543	7958712862086413	GUI_autogen/mocs_compilation.cpp	fa53d64bac3fea33
+8	543	7958712862086413	Z:/TPU/Education Project/Ivan_messanger/GUI/build/Windows-release/GUI_autogen/timestamp	fa53d64bac3fea33
+8	543	7958712862086413	Z:/TPU/Education Project/Ivan_messanger/GUI/build/Windows-release/GUI_autogen/mocs_compilation.cpp	fa53d64bac3fea33
+543	2965	7958712862400821	CMakeFiles/GUI.dir/GUI_autogen/mocs_compilation.cpp.obj	8f439cc82753edeb
+544	2997	7958712862405916	CMakeFiles/GUI.dir/main.cpp.obj	51ec5c7fac40df
+544	5016	7958712862410998	CMakeFiles/GUI.dir/mainwindow.cpp.obj	6d997a53352c7c66
+5016	5101	7958712907130264	GUI.exe	7cd9a7a174ebaf79

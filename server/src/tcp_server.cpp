@@ -85,6 +85,11 @@ bool TCPServer::clientHandle(int sock) {
                 std::lock_guard<std::mutex> lock(usersMutex);
                 socketToUser[sock] = j["user"];
                 userToSocket[j["user"]] = sock;
+                getAllUsers();
+                msg = protocol::userList(users);
+
+                for (auto& [user, sock] : userToSocket)
+                    sendPacket(sock, msg);
             }
         } else if (msgType == "broadcastMessage") { //user send message to each other clients
             {    
@@ -185,4 +190,12 @@ bool TCPServer::recvPacket(int sock, std::string &data) {
 
     if (!recvAll(sock, data.data(), len)) return false;
     return true;
+}
+
+void TCPServer::getAllUsers() {
+    users.clear();
+    for (auto& [user, sock] : userToSocket) {    
+        std::cout << sock << std::endl;
+        users.push_back(user);
+    }
 }

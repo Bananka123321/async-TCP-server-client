@@ -1,0 +1,9 @@
+Z:/TPU/Education Project/Ivan_messanger/GUI/build/Windows-release/CMakeFiles/GUI.dir
+Z:/TPU/Education Project/Ivan_messanger/GUI/build/Windows-release/CMakeFiles/edit_cache.dir
+Z:/TPU/Education Project/Ivan_messanger/GUI/build/Windows-release/CMakeFiles/rebuild_cache.dir
+Z:/TPU/Education Project/Ivan_messanger/GUI/build/Windows-release/CMakeFiles/list_install_components.dir
+Z:/TPU/Education Project/Ivan_messanger/GUI/build/Windows-release/CMakeFiles/install.dir
+Z:/TPU/Education Project/Ivan_messanger/GUI/build/Windows-release/CMakeFiles/install/local.dir
+Z:/TPU/Education Project/Ivan_messanger/GUI/build/Windows-release/CMakeFiles/install/strip.dir
+Z:/TPU/Education Project/Ivan_messanger/GUI/build/Windows-release/CMakeFiles/GUI_autogen_timestamp_deps.dir
+Z:/TPU/Education Project/Ivan_messanger/GUI/build/Windows-release/CMakeFiles/GUI_autogen.dir

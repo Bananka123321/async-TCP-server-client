@@ -1,6 +1,7 @@
 #pragma once
 
-#include <nlohmann/json.hpp>
+#include <../nlohmann/json.hpp>
+
 #include <string>
 
 using json = nlohmann::json;
@@ -27,6 +28,13 @@ namespace protocol {
         j["text"] = text;
         j["from"] = sender;
         j["to"] = user;
+        return j.dump();
+    }
+
+    inline std::string userList(const std::vector<std::string>& users) {
+        json j;
+        j["type"] = "userList";
+        j["users"] = users;
         return j.dump();
     }
 }
