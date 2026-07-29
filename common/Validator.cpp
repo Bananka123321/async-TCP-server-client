@@ -1,19 +1,18 @@
 #include "Validator.h"
 
-std::optional<std::string> Validator::username(std::string_view value) {
+std::optional<std::string> Validator::username(const std::string_view value) {
     if (value.empty()) return "Cannot be empty\n";
     if (value.length() < 4) return "Must be minimum 4 characters\n";
     if (value.length() > 32) return "Maximum 32 characters\n";
     
-    for (char c : value) {
-        bool ok = (c >= 'a' && c <='z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <='9') || c == '_' || c == '-';
-        if (!ok) return "Only letters, numbers, underscore and dash allowed\n";
+    for (const char c : value) {
+        if (const bool ok = (c >= 'a' && c <='z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <='9') || c == '_' || c == '-'; !ok) return "Only letters, numbers, underscore and dash allowed\n";
     }
     
     return std::nullopt;
 }
 
-std::optional<std::string> Validator::password(std::string_view value) {
+std::optional<std::string> Validator::password(const std::string_view value) {
     if (value.empty()) return "Cannot be empty\n";
     if (value.length() < 6) return "Must be minimum 6 characters\n";
     if (value.length() > 32) return "Maximum 32 characters\n";
@@ -21,14 +20,14 @@ std::optional<std::string> Validator::password(std::string_view value) {
     return std::nullopt;
 }
 
-std::optional<std::string> Validator::message(std::string_view value) {
+std::optional<std::string> Validator::message(const std::string_view value) {
     if (value.empty()) return "Cannot be empty\n";
     if (value.length() > 4096) return "Too long(max 4096 characters)\n";
     
     return std::nullopt;
 }
 
-std::optional<std::string> Validator::search(std::string_view value) {
+std::optional<std::string> Validator::search(const std::string_view value) {
     if (value.empty()) return "Cannot be empty\n";
     if (value.length() > 64) return "Too long(max 64 characters)\n";
     
@@ -41,8 +40,7 @@ bool Validator::valid_string_field(const nlohmann::json& j, const std::string& k
         return false;
     }
 
-    auto err = Validator(j[key].get<std::string_view>());
-    if (err) {
+    if (const auto err = Validator(j[key].get<std::string_view>())) {
         error = *err;
         return false;
     }
@@ -66,13 +64,35 @@ bool Validator::valid_int_field(const nlohmann::json& j, const std::string& key,
     
 }
 
-std::string Validator::sanitize(std::string_view value) {
+std::optional<std::string> Validator::validateMessage(const Message& msg) {
+    return std::visit([]<typename T0>(const T0& content) -> std::optional<std::string> {
+        using T = std::decay_t<T0>;
+        
+        if constexpr (std::is_same_v<T, TextContent>) {
+            return Validator::message(content.text);
+        }
+        else if constexpr (std::is_same_v<T, MediaContent>) {
+            if (content.url.empty()) return "Media URL is empty";
+            if (content.size_bytes > 100 * 1024 * 1024) return "File too large (max 100MB)";
+            return std::nullopt;
+        }
+        else if constexpr (std::is_same_v<T, VoiceContent>) {
+            if (content.url.empty()) return "Voice URL is empty";
+            if (content.duration_sec > 300) return "Voice message too long (max 5 min)";
+            return std::nullopt;
+        }
+
+        return std::nullopt;
+    }, msg.payload);
+}
+
+std::string Validator::sanitize(const std::string_view value) {
     std::string result;
     result.reserve(value.length());
 
     size_t i = 0;
     while (i < value.length()) {
-        unsigned char c = static_cast<unsigned char>(value[i]);
+        const auto c = static_cast<unsigned char>(value[i]);
 
         int seq_len = 0;
         uint32_t codepoint = 0;
@@ -100,7 +120,7 @@ std::string Validator::sanitize(std::string_view value) {
 
         bool valid = true;
         for (int j = 1; j < seq_len; j++) {
-            unsigned char cont = static_cast<unsigned char>(value[i + j]);
+            const auto cont = static_cast<unsigned char>(value[i + j]);
             if ((cont & 0xC0) != 0x80) {
                 valid = false;
                 break;

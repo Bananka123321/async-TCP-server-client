@@ -7,7 +7,6 @@
 struct MetaDialog{
     int peer_id;
     std::string username;
-    std::string last_msg_text;
+    std::string last_msg_preview;
     int64_t last_msg_timestamp;
-    int64_t last_activity_time;
 };

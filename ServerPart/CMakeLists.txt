@@ -13,7 +13,7 @@ set(SERVER_SOURCES
     src/ClientSession.cpp
     src/Handler.cpp
     src/SessionManager.cpp
-        src/MessageDispatcher_.cpp
+        src/MessageDispatcher.cpp
     src/Config.cpp
     src/DB_MessageManager.cpp
     src/DB_DialogManager.cpp
