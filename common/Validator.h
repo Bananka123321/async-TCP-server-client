@@ -17,5 +17,5 @@ namespace Validator {
     bool valid_string_field(const nlohmann::json& j, const std::string& key, std::optional<std::string> (*Validator)(std::string_view), std::string& error);
     bool valid_int_field(const nlohmann::json& j, const std::string& key, const long int& minV, const long int& maxV, std::string& error);
     std::string sanitize(std::string_view value);
-    static std::optional<std::string> validateMessage(const Message& msg);
+    std::optional<std::string> validateMessage(const Message& msg);
 }

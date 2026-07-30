@@ -46,25 +46,66 @@ std::vector<MetaDialog> DB_DialogManager::getUserDialogs(int user_id) {
     std::vector<MetaDialog> result;
     try {
         pqxx::work txn(conn_);
+
         const auto rows = txn.exec(
-            "SELECT d.peer_id, u.username, d.last_msg_text, d.last_msg_timestamp"
-            " FROM dialogs d"
-            " JOIN users u ON d.peer_id = u.id"
-            " WHERE d.user_id = $1"
-            " ORDER BY d.updated_at DESC",
+            "SELECT "
+            "    d.id AS dialog_id, "
+            "    dp_peer.user_id AS peer_id, "
+            "    u_peer.username AS peer_username, "
+            "    dlm.last_msg_text, "
+            "    EXTRACT(EPOCH FROM dlm.last_msg_timestamp) * 1000 AS last_msg_timestamp, "
+            "    dlm.last_msg_sender_id, "
+            "    CASE "
+            "        WHEN dlm.last_msg_sender_id = $1 THEN 'Вы' "
+            "        ELSE u_peer.username "
+            "    END AS display_name, "
+            "    (SELECT COUNT(*) FROM messages m "
+            "     WHERE m.dialog_id = d.id AND m.id > dp.last_read_msg_id) AS unread_count "
+            "FROM dialog_participants dp "
+            "JOIN dialogs d ON dp.dialog_id = d.id "
+            "JOIN dialog_participants dp_peer "
+            "    ON d.id = dp_peer.dialog_id AND dp_peer.user_id != $1 "
+            "JOIN users u_peer ON u_peer.id = dp_peer.user_id "
+            "LEFT JOIN dialog_last_message dlm ON d.id = dlm.dialog_id "
+            "WHERE dp.user_id = $1 "
+            "ORDER BY d.updated_at DESC NULLS LAST",
             pqxx::params(user_id)
         );
 
+        result.reserve(rows.size());
+
         for (const auto& row : rows) {
-            result.push_back({
-                .peer_id = row["peer_id"].as<int>(),
-                .username = row["username"].as<std::string>(),
-                .last_msg_text = row["last_msg_text"].as<std::string>(),
-                .last_msg_timestamp = row["last_msg_timestamp"].as<int64_t>()
-            });
+            MetaDialog md;
+            md.dialog_id = row["dialog_id"].as<int64_t>();
+            md.peer_id = row["peer_id"].as<int>();
+            md.username = row["peer_username"].as<std::string>();
+            md.display_name = row["display_name"].as<std::string>();
+            md.last_msg_preview = row["last_msg_text"].as<std::string>();
+            md.last_msg_timestamp = row["last_msg_timestamp"].as<int64_t>();
+            md.unread_count = row["unread_count"].as<int>();
+            result.push_back(std::move(md));
         }
-    } catch(const std::exception& e) {
-        std::cerr << "GET dialogs ERROR: " << e.what() << '\n';
+    } catch (const std::exception& e) {
+        std::cerr << "DB error in getUserDialogs: " << e.what() << '\n';
+    }
+    return result;
+}
+
+std::vector<int> DB_DialogManager::getDialogParticipants(int64_t dialog_id) {
+    std::vector<int> result;
+    try {
+        pqxx::work txn(conn_);
+        const auto& rows = txn.exec(
+            "SELECT user_id FROM dialog_participants"
+            " WHERE dialog_id = $1",
+            pqxx::params(dialog_id)
+            );
+
+        for (const auto& row : rows) {
+            result.push_back(row["dialog_id"].as<int>());
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "DB error in getDialogParticipants: " << e.what() << '\n';
     }
     return result;
 }

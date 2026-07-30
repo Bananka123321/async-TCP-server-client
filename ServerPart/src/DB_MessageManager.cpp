@@ -11,10 +11,10 @@ std::optional<int64_t> DB_MessageManager::saveMessage(const Message& message) {
         const auto result = txn.exec(
             "INSERT INTO messages (dialog_id, sender_id, type, created_at, payload)"
             " VALUES ($1, $2, $3, to_timestamp($4 / 1000.0), $5::jsonb) RETURNING id",
-            pqxx::params(message.dialog_id, message.sender_id, static_cast<uint8_t>(message.type), message.created_at_ms, message.payload));
+            pqxx::params(message.dialog_id, message.sender_id, static_cast<int>(message.type), message.created_at_ms, payload_json));
 
         txn.commit();
-        return result[0][0].as<int>();
+        return result[0][0].as<int64_t>();
     } catch(const std::exception& e) {
         std::cerr << e.what() << '\n';
         return std::nullopt;
@@ -40,7 +40,7 @@ std::vector<Message> DB_MessageManager::getHistory(int dialog_id, int before_id,
             msg.id = row["id"].as<int64_t>();
             msg.dialog_id = row["dialog_id"].as<int>();
             msg.sender_id = row["sender_id"].as<int>();
-            msg.type = static_cast<MessageType>(row["type"].as<uint8_t>());
+            msg.type = static_cast<MessageType>(row["type"].as<int>());
             msg.created_at_ms = row["timestamp_ms"].as<int64_t>();
 
             auto payload_json = row["payload"].as<std::string>();

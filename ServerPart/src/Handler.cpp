@@ -105,7 +105,7 @@ void Handler::registerRequest(const std::shared_ptr<ClientSession>& client, cons
 
 void Handler::authSuccess(const std::shared_ptr<ClientSession>& client, int id, const std::string& username) {
     client->setUser(id, username);
-    client->set_is_authenticated(true);
+    client->setIsAuthenticated(true);
     const std::string token = generateToken();
     userManager_.createSession(id, token);
     dispatcher_.sendTo(client, protocol::loginResponse(true, id, username, token, ""));
@@ -113,8 +113,8 @@ void Handler::authSuccess(const std::shared_ptr<ClientSession>& client, int id, 
 }
 
 void Handler::sendMessage(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j) {
-    if (!client->get_is_authenticated()) {
-        std::cerr << "SORRY, not auth\n";
+    if (!client->getIsAuthenticated()) {
+        dispatcher_.sendTo(client, protocol::errorMessage("Not authenticated"));
         return;
     }
     
@@ -159,18 +159,20 @@ void Handler::sendMessage(const std::shared_ptr<ClientSession>& client, const nl
     msg.id = saved_id.value();
     dialogManager_.updateLastMessage(msg);
 
-    const std::string preview = msg.getPreview();
-    dialogManager_.upsertDialog(msg.sender_id, msg.dialog_id, msg.id, preview, msg.created_at_ms);
-    dialogManager_.upsertDialog(msg.dialog_id, msg.sender_id, msg.id, preview, msg.created_at_ms);
+    const auto& participants = dialogManager_.getDialogParticipants(msg.dialog_id);
+    for (const auto participant : participants) {
+        if (participant == msg.sender_id) {
+            continue;
+        }
 
-    const auto receiver = sessionManager_.getSessionByDialogId(msg.dialog_id);
-    if (receiver && receiver->getUserId() != msg.sender_id) {
-        if (!receiver->send(protocol::sendMessage(msg))) {
-            std::cerr << "Failed to send message to dialog " << msg.dialog_id << '\n';
+        if (const auto& receiver = sessionManager_.getByUserId(participant)) {
+            if (!receiver->send(protocol::sendMessage(msg))) {
+                std::cerr << "Failed to send message to dialog " << msg.dialog_id << '\n';
+            }
         }
     }
 
-    dispatcher_.sendTo(client, protocol::sendMessage(msg));
+    //Последующе подтверждение отправки сообщения(статус: отправлено)
 }
 
 void Handler::setDisconnectHandler(const std::function<void(std::shared_ptr<ClientSession>)> &cb) {
@@ -189,20 +191,19 @@ void Handler::searchUserRequest(const std::shared_ptr<ClientSession>& client, co
 }
 
 void Handler::historyRequest(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j) {
-    if(!client->get_is_authenticated()) return;
-    const auto history = messageManager_.getHistory(client->getUserId(), j["peer_id"], j["last_msg_id"], j["limit"]);
+    if(!client->getIsAuthenticated()) return;
+    const auto history = messageManager_.getHistory(12, j["last_msg_id"], j["limit"]);
     dispatcher_.sendTo(client, protocol::historyResponse(!history.empty(), j["peer_id"], history));
 }
 
 void Handler::getDialogsRequest(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j) {
-    if(!client->get_is_authenticated()) return;
+    if(!client->getIsAuthenticated()) {
+        dispatcher_.sendTo(client, protocol::errorMessage("Not authenticated"));
+        return;
+    }
 
-    const auto dialogs = dialogManager_.getUserDialogs(client->getUserId());
-    std::vector<MetaDialog> metas;
-    for (const auto&[peer_id, username, last_msg_text, last_msg_timestamp, last_activity_time] : dialogs)
-        metas.push_back({.peer_id = peer_id, .username = username, .last_msg_text = last_msg_text, .last_msg_timestamp = last_msg_timestamp, .last_activity_time = last_activity_time});
-
-    dispatcher_.sendTo(client, protocol::getDialogsResponse(!metas.empty(), metas));
+    auto dialogs = dialogManager_.getUserDialogs(client->getUserId());
+    dispatcher_.sendTo(client, protocol::getDialogsResponse(!dialogs.empty(), std::move(dialogs)));
 }
 
 void Handler::ping(const std::shared_ptr<ClientSession> &client, const nlohmann::json& j) {
@@ -225,7 +226,7 @@ void Handler::resumeConnectionRequest(const std::shared_ptr<ClientSession>& clie
 
     const int id = user_id.value();
     client->setUser(id, "");
-    client->set_is_authenticated(true);
+    client->setIsAuthenticated(true);
     sessionManager_.add(client);
     dispatcher_.sendTo(client, protocol::resumeConnectionResponse(true));
 }

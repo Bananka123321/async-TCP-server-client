@@ -14,6 +14,7 @@ public:
     void upsertDialog(int user_id, int peer_id, int64_t msg_id, const std::string& preview, int64_t timestamp);
     std::vector<MetaDialog> getUserDialogs(int user_id);
     void updateLastMessage(const Message& msg);
+    std::vector<int> getDialogParticipants(int64_t dialog_id);
 
 private:
     pqxx::connection conn_;

@@ -35,16 +35,16 @@ bool ClientSession::receive(std::string& message) const {
     return PacketIO::recvPacket(ssl_, message);
 }
 
-void ClientSession::setUser(const int& new_id, const std::string& new_username) {
+void ClientSession::setUser(int new_id, const std::string& new_username) {
     username_ = new_username;
     user_id_ = new_id;
 }
 
-bool ClientSession::get_is_authenticated() const {
+bool ClientSession::getIsAuthenticated() const {
     return isAuthenticated_;
 }
 
-void ClientSession::set_is_authenticated(const bool value) {
+void ClientSession::setIsAuthenticated(const bool value) {
     isAuthenticated_ = value;
 }
 
@@ -52,7 +52,7 @@ int64_t ClientSession::getLastActivity() const {
     return last_activity_time_.load(std::memory_order_relaxed);
 }
 
-void ClientSession::setLastActivity(const int64_t& newTimestamp) {
+void ClientSession::setLastActivity(int64_t newTimestamp) {
     last_activity_time_.store(newTimestamp);
 }
 
@@ -60,6 +60,6 @@ bool ClientSession::getConnected() const {
     return connected_.load(std::memory_order_relaxed);
 }
 
-void ClientSession::setConnected(const bool& newState) {
+void ClientSession::setConnected(bool newState) {
     connected_.store(newState);
 }

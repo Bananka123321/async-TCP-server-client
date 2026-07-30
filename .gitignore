@@ -11,3 +11,4 @@ CMakePresets.json
 .idea
 cmake-build-debug/
 CMakeLists.txt.user
+.qtcreator/
