@@ -52,5 +52,5 @@ struct Message {
             }
             return "Неизвестное сообщение";
         }, payload);
-    };
+    }
 };

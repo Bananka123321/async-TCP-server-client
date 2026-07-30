@@ -1,8 +1,6 @@
 #pragma once
 
 #include <string>
-#include <vector>
-#include "Message.h"
 
 struct MetaDialog{
     int64_t dialog_id;

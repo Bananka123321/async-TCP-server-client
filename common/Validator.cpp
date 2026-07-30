@@ -169,7 +169,7 @@ std::string Validator::sanitize(const std::string_view value) {
 
         if (allowed) {
             for (int j = 0; j < seq_len; j++) {
-                result += static_cast<char>(value[i + j]);
+                result += value[i + j];
             }
         }
 

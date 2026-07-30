@@ -18,7 +18,7 @@ public:
     [[nodiscard]] int getSocket() const;
 
     [[nodiscard]] const std::string& getUsername() const;
-    [[nodiscard]] const int& getUserId() const;
+    [[nodiscard]] int getUserId() const;
     [[nodiscard]] bool getIsAuthenticated() const;
     [[nodiscard]] int64_t getLastActivity() const;
     [[nodiscard]] bool getConnected() const;

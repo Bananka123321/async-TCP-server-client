@@ -121,12 +121,12 @@ namespace protocol {
 //     return j.dump();
 // }
 
-    inline std::string sendMessage(const Message& msg) {
-        nlohmann::json j;
-        j["type"] = "sendMessage";
-        j["data"] = msg;
-        return j.dump();
-    }
+inline std::string sendMessage(const Message& msg) {
+    nlohmann::json j;
+    j["type"] = "sendMessage";
+    j["data"] = msg;
+    return j.dump();
+}
 
 //      CLIENT --> SERVER
 //=================================================================================================================================================================
@@ -154,7 +154,7 @@ inline std::string searchUserRequest(const std::string& username) {
     return j.dump();
 }
 
-inline std::string historyRequest(int dialog_id, const int64_t& last_msg_id, int limit) {
+inline std::string historyRequest(const int64_t dialog_id, const int64_t last_msg_id, int limit) {
     nlohmann::json j;
     j["type"] = "historyRequest";
     j["dialog_id"] = dialog_id;
@@ -235,7 +235,7 @@ inline std::string errorMessage(const std::string& reason) {
     return j.dump();
 }
 
-inline std::string historyResponse(bool success, int dialog_id, const std::vector<Message>& messages, const std::string& reason = "") {
+inline std::string historyResponse(bool success, const int64_t dialog_id, const std::vector<Message>& messages, const std::string& reason = "") {
     nlohmann::json j;
     j["type"] = "historyResponse";
     j["success"] = success;

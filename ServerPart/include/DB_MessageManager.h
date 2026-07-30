@@ -12,7 +12,7 @@ public:
     explicit DB_MessageManager(const std::string& conn_str);
 
     std::optional<int64_t> saveMessage(const Message& message);
-    std::vector<Message> getHistory(int dialog_id, int before_id, int limit);
+    std::vector<Message> getHistory(int64_t dialog_id, int64_t before_id, int limit);
     
 private:
     pqxx::connection conn_;

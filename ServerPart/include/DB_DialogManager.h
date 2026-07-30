@@ -6,6 +6,7 @@
 #include <iostream>
 
 #include "MetaDialog.h"
+#include "Message.h"
 
 class DB_DialogManager {
 public:

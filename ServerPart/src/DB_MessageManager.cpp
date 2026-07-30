@@ -21,7 +21,7 @@ std::optional<int64_t> DB_MessageManager::saveMessage(const Message& message) {
     }
 };
 
-std::vector<Message> DB_MessageManager::getHistory(int dialog_id, int before_id, int limit) {
+std::vector<Message> DB_MessageManager::getHistory(int64_t dialog_id, int64_t before_id, int limit) {
     std::vector<Message> result;
     try {
         pqxx::work txn(conn_);

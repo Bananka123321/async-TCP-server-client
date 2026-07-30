@@ -1,8 +1,6 @@
 #pragma once
 
 #include <string>
-#include <iostream>
-#include <openssl/err.h>
 #include <openssl/ssl.h>
 
 #ifdef _WIN32
@@ -14,7 +12,7 @@
     #include <sys/socket.h>
 #endif
 
-const uint32_t MAX_PACKET_SIZE = 1024*1024;
+constexpr uint32_t MAX_PACKET_SIZE = 1024*1024;
 
 class PacketIO {
 public:

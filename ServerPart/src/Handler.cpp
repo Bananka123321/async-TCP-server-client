@@ -103,7 +103,7 @@ void Handler::registerRequest(const std::shared_ptr<ClientSession>& client, cons
     authSuccess(client, user_id, j["username"]);
 }
 
-void Handler::authSuccess(const std::shared_ptr<ClientSession>& client, int id, const std::string& username) {
+void Handler::authSuccess(const std::shared_ptr<ClientSession>& client, const int id, const std::string& username) {
     client->setUser(id, username);
     client->setIsAuthenticated(true);
     const std::string token = generateToken();
@@ -180,22 +180,59 @@ void Handler::setDisconnectHandler(const std::function<void(std::shared_ptr<Clie
 }
 
 void Handler::searchUserRequest(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j) {
+    if (!client->getIsAuthenticated()) {
+        dispatcher_.sendTo(client, protocol::errorMessage("Not authenticated"));
+        return;
+    }
+
     if(std::string error; !Validator::valid_string_field(j, "username", Validator::search, error)) {
         dispatcher_.sendTo(client, protocol::errorMessage(error));
         return;
     }
 
-    const auto users = userManager_.searchUsers(j["username"]);
-
+    const auto users = userManager_.searchUsers(j["username"].get<std::string>());
     dispatcher_.sendTo(client, protocol::searchUserResponse(users));
 }
 
 void Handler::historyRequest(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j) {
-    if(!client->getIsAuthenticated()) return;
-    const auto history = messageManager_.getHistory(12, j["last_msg_id"], j["limit"]);
-    dispatcher_.sendTo(client, protocol::historyResponse(!history.empty(), j["peer_id"], history));
-}
+    if (!client->getIsAuthenticated()) {
+        dispatcher_.sendTo(client, protocol::errorMessage("Not authenticated"));
+        return;
+    }
 
+    if (!j.contains("dialog_id") || !j.contains("last_msg_id") || !j.contains("limit")) {
+        dispatcher_.sendTo(client, protocol::errorMessage("Missing required fields"));
+        return;
+    }
+
+    int64_t dialog_id;
+    int64_t last_msg_id;
+    int limit;
+
+    try {
+        dialog_id = j["dialog_id"].get<int64_t>();
+        last_msg_id = j["last_msg_id"].get<int64_t>();
+        limit = j["limit"].get<int>();
+    } catch (const std::exception& e) {
+        dispatcher_.sendTo(client, protocol::errorMessage("Invalid parameter types. " + std::string(e.what())));
+        return;
+    }
+
+    if (limit <= 0 || limit > 100) {
+        dispatcher_.sendTo(client, protocol::errorMessage("Limit must be between 1 and 100"));
+        return;
+    }
+
+    auto participants = dialogManager_.getDialogParticipants(dialog_id);
+    if (std::ranges::find(participants, client->getUserId()) == participants.end()) {
+        dispatcher_.sendTo(client, protocol::errorMessage("You are not a participant of this dialog"));
+        return;
+    }
+
+    const auto history = messageManager_.getHistory(dialog_id, last_msg_id, limit);
+
+    dispatcher_.sendTo(client, protocol::historyResponse(!history.empty(), dialog_id, history));
+}
 void Handler::getDialogsRequest(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j) {
     if(!client->getIsAuthenticated()) {
         dispatcher_.sendTo(client, protocol::errorMessage("Not authenticated"));

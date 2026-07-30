@@ -11,7 +11,7 @@ void SessionManager::remove(const std::shared_ptr<ClientSession>& client) {
     std::erase(sessions_, client);
 }
 
-std::shared_ptr<ClientSession> SessionManager::getByUserId(const int& user_id) {
+std::shared_ptr<ClientSession> SessionManager::getByUserId(const int user_id) {
     std::lock_guard<std::mutex> lock(mutex_);
     for (auto& s : sessions_)
         if (s->getUserId() == user_id) return s;

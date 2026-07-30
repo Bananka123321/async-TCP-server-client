@@ -1,9 +1,11 @@
 #include "PacketIO.h"
+#include <iostream>
+#include <openssl/err.h>
 
-bool PacketIO::sendAll(SSL* ssl, const void* data, size_t size) {
+bool PacketIO::sendAll(SSL* ssl, const void* data, const size_t size) {
     size_t total = 0;
     while (total < size) {
-        int sent = SSL_write(ssl, static_cast<const char*>(data) + total, static_cast<int>(size - total));
+        const int sent = SSL_write(ssl, static_cast<const char*>(data) + total, static_cast<int>(size - total));
         if (sent <= 0) return false;
         total += sent;
     }
@@ -12,7 +14,7 @@ bool PacketIO::sendAll(SSL* ssl, const void* data, size_t size) {
 }
 
 bool PacketIO::sendPacket(SSL* ssl, const std::string& data) {
-    uint32_t len = htonl(static_cast<uint32_t>(data.size()));
+    const uint32_t len = htonl(static_cast<uint32_t>(data.size()));
 
     if (!sendAll(ssl, &len, sizeof(len)))
         return false;
@@ -23,12 +25,12 @@ bool PacketIO::sendPacket(SSL* ssl, const std::string& data) {
     return true;
 }
 
-bool PacketIO::recvAll(SSL* ssl, void* data, size_t size) {
+bool PacketIO::recvAll(SSL* ssl, void* data, const size_t size) {
     size_t total = 0;
     while (total < size) {
-        int bytes = SSL_read(ssl, static_cast<char*>(data) + total, static_cast<int>(size - total));
+        const int bytes = SSL_read(ssl, static_cast<char*>(data) + total, static_cast<int>(size - total));
         if (bytes <= 0) {
-            int err = SSL_get_error(ssl, bytes);
+            const int err = SSL_get_error(ssl, bytes);
             if (err == SSL_ERROR_ZERO_RETURN) {
                 std::cerr << "Client was shutdown the connection\n";
                 return false;

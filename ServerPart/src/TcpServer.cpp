@@ -1,4 +1,5 @@
 #include "../include/TcpServer.h"
+#include <openssl/err.h>
 
 TcpServer::TcpServer(const int port) : port_(port), serverSocket_(-1), sessionManager_(), handler_(sessionManager_) {
     handler_.setDisconnectHandler([this](const std::shared_ptr<ClientSession> &client) {
@@ -151,11 +152,9 @@ void TcpServer::startClientMonitoring() {
         while (monitorRunning_.load()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(HEARTBEAT_INTERVAL_MS));
 
-            int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+            const int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
-            auto clients = sessionManager_.getAll();
-
-            for (const auto& client : clients) {
+            for (auto clients = sessionManager_.getAll(); const auto& client : clients) {
                 if(now - client->getLastActivity() > SESSION_TIMEOUT_MS) {
                     clientDisconnect(client);
                 }
