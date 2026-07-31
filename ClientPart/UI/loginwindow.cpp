@@ -1,6 +1,6 @@
 #include "loginwindow.h"
 #include "ui_loginwindow.h"
-
+#include "iostream"
 
 LoginWindow::LoginWindow(QWidget *parent, MessageRouter* router)
     : QDialog(parent), ui(new Ui::LoginWindow), router_(router) {

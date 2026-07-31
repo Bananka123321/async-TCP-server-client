@@ -1,5 +1,6 @@
 #include "tcp_client.h"
 #include <QString>
+#include <openssl/err.h>
 
 QString IPADRESS_dev = "127.0.0.1";
 QString IPADRESS_dep = "31.192.108.37";

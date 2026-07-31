@@ -16,7 +16,7 @@ public:
 
     void loginRequest(const std::string& login, const std::string& password);
     void registerRequest(const std::string& login, const std::string& password);
-    void sendMessage(const int& from, const int& to, const std::string& text);
+    void sendMessage(const int from, const int to, const std::string& text);
     void searchUser(const std::string& text);
     void historyRequest(int peer_id, int last_msg_id);
     void getDialogsRequest();
@@ -27,8 +27,10 @@ public:
     void setReconnecting(bool value);
 
 private:
-    SSL* ssl;
-    std::mutex mutex;
-    std::atomic<bool> isReconnecting{false};
+    SSL* ssl_;
+    std::mutex mutex_;
+    std::atomic<bool> isReconnecting_{false};
+
+private:
     void sendPacket(const std::string& msg, bool force = false);
 };

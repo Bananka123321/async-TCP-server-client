@@ -4,7 +4,7 @@
 AppController::AppController(MessageRouter* router, AppState* state, Handler* handler, TCPClient* client) : router_(router), state_(state),  handler_(handler), client_(client) {}
 
 void AppController::AttachUI(MainWindow* mainW, LoginWindow* loginW) {
-    connect(mainW, &MainWindow::sendMessageRequest, this, [this](const int& to, const std::string& text) {
+    connect(mainW, &MainWindow::sendMessageRequest, this, [this](const int to, const std::string& text) {
         router_->sendMessage(state_->getCurrentUserId(), to, text);
     });
 

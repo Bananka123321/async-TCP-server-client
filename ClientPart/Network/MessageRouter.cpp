@@ -3,12 +3,12 @@
 MessageRouter::MessageRouter() {}
 \
 void MessageRouter::setSSL(SSL* ssl_) {
-    std::lock_guard<std::mutex> lock(mutex);
-    ssl = ssl_;
+    std::lock_guard<std::mutex> lock(mutex_);
+    ssl_ = ssl_;
 }
 
 void MessageRouter::setReconnecting(bool value) {
-    isReconnecting.store(value);
+    isReconnecting_.store(value);
 }
 
 void MessageRouter::loginRequest(const std::string& login, const std::string& password) {
@@ -21,7 +21,7 @@ void MessageRouter::registerRequest(const std::string& login, const std::string&
     sendPacket(request);
 }
 
-void MessageRouter::sendMessage(const int& from, const int& to, const std::string& text) {
+void MessageRouter::sendMessage(const int from, const int to, const std::string& text) {
     std::string request = protocol::privateMessage(from, to, text);
     sendPacket(request);
 }
@@ -52,17 +52,17 @@ void MessageRouter::resumeConnectionRequest(const std::string& token) {
 }
 
 void MessageRouter::sendPacket(const std::string& msg, bool force) {
-    if(!force && isReconnecting.load()) {
+    if(!force && isReconnecting_.load()) {
         return;
     }
 
-    std::lock_guard<std::mutex> lock(mutex);
-    if(!force && isReconnecting.load()) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if(!force && isReconnecting_.load()) {
         return;
     }
 
-    if(!ssl) {
+    if(!ssl_) {
         return;
     }
-    PacketIO::sendPacket(ssl, msg);
+    PacketIO::sendPacket(ssl_, msg);
 }

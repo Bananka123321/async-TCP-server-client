@@ -28,7 +28,7 @@ public:
     // void newMessage(int sender, const std::string& text);
 
 signals:
-    void sendMessageRequest(const int& to, const std::string& text);
+    void sendMessageRequest(const int to, const std::string& text);
     void searchUser(const std::string& text);
     void loadHistoryRequest(int peer_id, int last_msg_id);
 

@@ -121,12 +121,6 @@ namespace protocol {
 //     return j.dump();
 // }
 
-inline std::string sendMessage(const Message& msg) {
-    nlohmann::json j;
-    j["type"] = "sendMessage";
-    j["data"] = msg;
-    return j.dump();
-}
 
 //      CLIENT --> SERVER
 //=================================================================================================================================================================
@@ -185,6 +179,13 @@ inline std::string resumeConnectionRequest(const std::string& token) {
 //      SERVER --> CLIENT
 //=================================================================================================================================================================
 
+inline std::string sendMessage(const Message& msg) {
+    nlohmann::json j;
+    j["type"] = "sendMessage";
+    j["data"] = msg;
+    return j.dump();
+}
+
 inline std::string loginResponse(bool success, int user_id, const std::string& login, const std::string& token, const std::string& reason = "") {
     nlohmann::json j;
     j["type"] = "loginResponse";
@@ -204,20 +205,6 @@ inline std::string registerResponse(bool success, int user_id, const std::string
     j["username"] = login;
     j["token"] = token;
     j["error"] = reason;
-    return j.dump();
-}
-
-inline std::string userList(const std::unordered_map<int, std::string>& users) {
-    nlohmann::json j;
-    j["type"] = "userList";
-    j["users"] = users;
-    return j.dump();
-}
-
-inline std::string usernameAvailability(bool available) {
-    nlohmann::json j;
-    j["type"] = "usernameAvailability";
-    j["available"] = available;
     return j.dump();
 }
 
