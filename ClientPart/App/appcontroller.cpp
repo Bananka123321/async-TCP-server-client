@@ -4,8 +4,8 @@
 AppController::AppController(MessageRouter* router, AppState* state, Handler* handler, TCPClient* client) : router_(router), state_(state),  handler_(handler), client_(client) {}
 
 void AppController::AttachUI(MainWindow* mainW, LoginWindow* loginW) {
-    connect(mainW, &MainWindow::sendMessageRequest, this, [this](const int to, const std::string& text) {
-        router_->sendMessage(state_->getCurrentUserId(), to, text);
+    connect(mainW, &MainWindow::sendMessageRequest, this, [this](const Message& msg) {
+        router_->sendMessage(msg);
     });
 
     connect(loginW, &LoginWindow::loginRequest, this, [this](const std::string& login, const std::string& password) {
@@ -20,8 +20,8 @@ void AppController::AttachUI(MainWindow* mainW, LoginWindow* loginW) {
         router_->searchUser(text);
     });
 
-    connect(mainW, &MainWindow::loadHistoryRequest, this, [this](int peer_id, int last_msg_id){
-        router_->historyRequest(peer_id, last_msg_id);
+    connect(mainW, &MainWindow::loadHistoryRequest, this, [this](const int64_t dialog_id, const int64_t last_msg_id){
+        router_->historyRequest(dialog_id, last_msg_id);
     });
 
     connect(this, &AppController::ping, router_, &MessageRouter::ping, Qt::QueuedConnection);

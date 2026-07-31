@@ -4,42 +4,45 @@
 #include <QScrollBar>
 
 MainWindow::MainWindow(QWidget *parent, AppState* state, DialogManager* manager)
-    : QMainWindow(parent), ui(new Ui::MainWindows), state_(state), manager_(manager) {
-    ui->setupUi(this);
+    : QMainWindow(parent), ui_(new Ui::MainWindows), state_(state), manager_(manager) {
+    ui_->setupUi(this);
 
-    connect(ui->sendButton, &QPushButton::clicked, this, [this]() {
-        QString text = ui->inputField->text();
-        if (text.isEmpty() || selectedUserId == -1) return;
+    connect(ui_->sendButton, &QPushButton::clicked, this, [this]() {
+        QString text = ui_->inputField->text();
+        if (text.isEmpty() || selectedDialogId_ == -1) return;
 
         std::string cleanText = Validator::sanitize(text.toStdString());
 
         Message localMsg{
-            -1,
-            state_->getCurrentUserId(),
-            selectedUserId,
-            cleanText,
-            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()
+            .id = -1,
+            .dialog_id = selectedDialogId_,
+            .sender_id = state_->getCurrentUserId(),
+            .type = MessageType::Text,
+            .created_at_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                 std::chrono::system_clock::now().time_since_epoch()
+                                 ).count(),
+            .payload = TextContent{.text = cleanText}
         };
 
-        manager_->addMessage(selectedUserId, localMsg);
+        manager_->addMessage(selectedDialogId_, localMsg);
 
-        emit sendMessageRequest(selectedUserId, cleanText);
+        emit sendMessageRequest(localMsg);
 
-        ui->inputField->clear();
+        ui_->inputField->clear();
     });
 }
 
 MainWindow::~MainWindow() {
-    delete ui;
+    delete ui_;
 }
 
 void MainWindow::appendMessageToView(const Message& msg) {
     QString html = buildMessageHtml(msg);
-    QTextCursor cursor(ui->chatView->document());
+    QTextCursor cursor(ui_->chatView->document());
     cursor.movePosition(QTextCursor::End);
     cursor.insertHtml(html);
 
-    ui->chatView->verticalScrollBar()->setValue(ui->chatView->verticalScrollBar()->maximum());
+    ui_->chatView->verticalScrollBar()->setValue(ui_->chatView->verticalScrollBar()->maximum());
 }
 
 
@@ -49,35 +52,36 @@ QString MainWindow::formatTime(int64_t timestamp) {
 }
 
 QString MainWindow::buildMessageHtml(const Message& msg) {
-    bool isMe = (msg.senderId == state_->getCurrentUserId());
+//     bool isMe = (msg.sender_id == state_->getCurrentUserId());
 
-    QString align     = isMe ? "right" : "left";
-    QString bgColor   = isMe ? "#89b4fa" : "#313244";
-    QString textColor = isMe ? "#11111b" : "#cdd6f4";
-    QString timeColor = isMe ? "#45475a" : "#a6adc8";
-    QString timeStr   = formatTime(msg.timestamp);
+//     QString align     = isMe ? "right" : "left";
+//     QString bgColor   = isMe ? "#89b4fa" : "#313244";
+//     QString textColor = isMe ? "#11111b" : "#cdd6f4";
+//     QString timeColor = isMe ? "#45475a" : "#a6adc8";
+//     QString timeStr   = formatTime(msg.created_at_ms);
 
-    QString escapedText = QString::fromStdString(msg.text).toHtmlEscaped();
-    escapedText.replace("\n", "<br>");
+//     QString escapedText = QString::fromStdString("").toHtmlEscaped();
+//     escapedText.replace("\n", "<br>");
 
-    return QString(
-               "<table width='100%' style='margin: 4px 0px; border: none;'>"
-               "  <tr>"
-               "    <td align='%1' style='border: none; padding: 0px;'>"
-               "      <table style='background-color: %2; border-radius: 12px; margin: 0px; border: none;' cellpadding='8' cellspacing='0'>"
-               "        <tr>"
-               "          <td style='border: none; padding: 6px 10px 4px 10px; max-width: 450px;'>"
-               "            <span style='color: %3; font-size: 13px; font-family: \"Segoe UI\", sans-serif;'>%4</span>"
-               "          </td>"
-               "        </tr>"
-               "        <tr>"
-               "          <td align='right' style='border: none; padding: 0px 10px 4px 10px;'>"
-               "            <span style='color: %5; font-size: 9px; font-family: \"Segoe UI\", sans-serif;'>%6</span>"
-               "          </td>"
-               "        </tr>"
-               "      </table>"
-               "    </td>"
-               "  </tr>"
-               "</table>"
-               ).arg(align, bgColor, textColor, escapedText, timeColor, timeStr);
+//     return QString(
+//                "<table width='100%' style='margin: 4px 0px; border: none;'>"
+//                "  <tr>"
+//                "    <td align='%1' style='border: none; padding: 0px;'>"
+//                "      <table style='background-color: %2; border-radius: 12px; margin: 0px; border: none;' cellpadding='8' cellspacing='0'>"
+//                "        <tr>"
+//                "          <td style='border: none; padding: 6px 10px 4px 10px; max-width: 450px;'>"
+//                "            <span style='color: %3; font-size: 13px; font-family: \"Segoe UI\", sans-serif;'>%4</span>"
+//                "          </td>"
+//                "        </tr>"
+//                "        <tr>"
+//                "          <td align='right' style='border: none; padding: 0px 10px 4px 10px;'>"
+//                "            <span style='color: %5; font-size: 9px; font-family: \"Segoe UI\", sans-serif;'>%6</span>"
+//                "          </td>"
+//                "        </tr>"
+//                "      </table>"
+//                "    </td>"
+//                "  </tr>"
+//                "</table>"
+//                ).arg(align, bgColor, textColor, escapedText, timeColor, timeStr);
+return "";
 }

@@ -2,9 +2,9 @@
 
 MessageRouter::MessageRouter() {}
 \
-void MessageRouter::setSSL(SSL* ssl_) {
+void MessageRouter::setSSL(SSL* ssl) {
     std::lock_guard<std::mutex> lock(mutex_);
-    ssl_ = ssl_;
+    ssl_ = ssl;
 }
 
 void MessageRouter::setReconnecting(bool value) {
@@ -21,8 +21,8 @@ void MessageRouter::registerRequest(const std::string& login, const std::string&
     sendPacket(request);
 }
 
-void MessageRouter::sendMessage(const int from, const int to, const std::string& text) {
-    std::string request = protocol::privateMessage(from, to, text);
+void MessageRouter::sendMessage(const Message &msg) {
+    std::string request = protocol::sendMessage(msg);
     sendPacket(request);
 }
 
@@ -31,8 +31,8 @@ void MessageRouter::searchUser(const std::string& text) {
     sendPacket(request);
 }
 
-void MessageRouter::historyRequest(int peer_id, int last_msg_id) {
-    std::string request = protocol::historyRequest(peer_id, last_msg_id, 200);
+void MessageRouter::historyRequest(const int64_t dialog_id, const int64_t last_msg_id) {
+    std::string request = protocol::historyRequest(dialog_id, last_msg_id, 200);
     sendPacket(request);
 }
 
