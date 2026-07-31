@@ -4,9 +4,9 @@
 
 #include "../include/SessionManager.h"
 
-class MessageDispatcher_ {
+class MessageDispatcher {
 public:
-    explicit MessageDispatcher_(SessionManager& sm);
+    explicit MessageDispatcher(SessionManager& sm);
 
     std::function<void(std::shared_ptr<ClientSession>)> onDisconnect;
 

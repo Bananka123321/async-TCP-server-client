@@ -4,94 +4,92 @@
 DialogManager::DialogManager(Handler* handler, AppState* state) : handler_(handler), state_(state) {}
 
 void DialogManager::start() {
-    connect(handler_, &Handler::S_Message, this, [this](const int& sender, const int& receiver, const std::string& text){
-        Message msg;
-        msg.receiverId = receiver;
-        msg.senderId = sender;
-        msg.text = text;
-        msg.timestamp = now();
-
-        int peer_id = (sender == state_->getCurrentUserId()) ? receiver: sender;
-        addMessage(peer_id, msg);
+    connect(handler_, &Handler::S_Message, this, [this](const Message& msg) {
+        addMessage(msg.dialog_id, msg);
     });
 
-    connect(handler_, &Handler::S_UserSearch, this, [this](const std::vector<User>& users){
+    connect(handler_, &Handler::S_UserSearch, this, [this](const std::vector<User>& users) {
         emit findUsers(users);
     });
 
-    connect(handler_, &Handler::S_HistoryLoaded, this, [this](const int& peer_id, std::vector<Message> messages){
-        if(messages.empty()) return;
-        prependHistory(peer_id, messages);
-        emit historyLoaded(peer_id, messages);
+    connect(handler_, &Handler::S_HistoryLoaded, this, [this](int64_t dialog_id, const std::vector<Message>& messages) {
+        if (messages.empty()) return;
+        prependHistory(dialog_id, messages);
+        emit historyLoaded(dialog_id, messages);
     });
 
-    connect(handler_, &Handler::S_DialogsLoaded, this, [this](const std::vector<MetaDialog>& dialogs){
+    connect(handler_, &Handler::S_DialogsLoaded, this, [this](const std::vector<MetaDialog>& dialogs) {
         dialogsLoaded(dialogs);
     });
 }
 
-void DialogManager::addMessage(int peer_id, const Message& msg) {
+void DialogManager::addMessage(int64_t dialog_id, const Message& msg) {
     bool needUpdateMessages = false;
     bool needUpdateDialogs = false;
+
     {
         QMutexLocker locker(&mtx_);
 
-        auto& meta_dialog = data_[peer_id];
+        auto& dialog_data = data_[dialog_id];
 
-        bool exists = std::any_of(meta_dialog.messages.begin(), meta_dialog.messages.end(), [&msg](const Message& m){
-            return m.timestamp == msg.timestamp && m.text == msg.text;
-        });
+        bool exists = std::any_of(
+            dialog_data.messages.begin(),
+            dialog_data.messages.end(),
+            [&msg](const Message& m) { return m.id == msg.id; }
+        );
 
-        if(!exists) {
-            meta_dialog.messages.push_back(msg);
+        if (!exists) {
+            dialog_data.messages.push_back(msg);
             needUpdateMessages = true;
         }
 
-        meta_dialog.meta_dialog_data.last_msg_text = msg.text;
-        meta_dialog.meta_dialog_data.last_msg_timestamp = msg.timestamp;
+        dialog_data.meta.last_msg_preview = msg.getPreview();
+        dialog_data.meta.last_msg_timestamp = msg.created_at_ms;
         needUpdateDialogs = true;
     }
 
-    if(needUpdateDialogs)
+    if (needUpdateDialogs)
         emit dialogsUpdated();
-    if(needUpdateMessages)
-        emit messagesUpdated(peer_id);
+
+    if (needUpdateMessages)
+        emit messagesUpdated(dialog_id);
 }
 
-const std::vector<Message>* DialogManager::getMessages(int peer_id) const {
+const std::vector<Message>* DialogManager::getMessages(int64_t dialog_id) const {
     QMutexLocker locker(&mtx_);
-    auto it = data_.find(peer_id);
+    auto it = data_.find(dialog_id);
     if(it != data_.end()) return &it->second.messages;
     return nullptr;
 }
 
-void DialogManager::prependHistory(int peer_id, const std::vector<Message>& messages) {
+void DialogManager::prependHistory(int64_t dialog_id, const std::vector<Message>& messages) {
     QMutexLocker locker(&mtx_);
-    auto& dialog = data_[peer_id];
+    auto& dialog = data_[dialog_id];
+
     for (const auto& newMsg : messages) {
-        bool exists = std::any_of(dialog.messages.begin(), dialog.messages.end(),[&newMsg](const Message& cachedMsg) {
-            if (newMsg.msgId > 0 && cachedMsg.msgId > 0)
-                return newMsg.msgId == cachedMsg.msgId;
-            return newMsg.timestamp == cachedMsg.timestamp && newMsg.text == cachedMsg.text;
-        });
+        bool exists = std::any_of(
+            dialog.messages.begin(), dialog.messages.end(),
+            [&newMsg](const Message& cachedMsg) {
+                return newMsg.id == cachedMsg.id;
+            });
 
         if (!exists)
             dialog.messages.insert(dialog.messages.begin(), newMsg);
-    }
+    };
 }
 
-void DialogManager::setHistory(int peer_id, const std::vector<Message>& messages) {
+void DialogManager::setHistory(int64_t dialog_id, const std::vector<Message>& messages) {
     if(messages.empty()) return;
 
     {
         QMutexLocker locker(&mtx_);
-        auto& dialog = data_[peer_id];
+        auto& dialog = data_[dialog_id];
         dialog.messages = messages;
-        dialog.meta_dialog_data.last_msg_text = messages.back().text;
-        dialog.meta_dialog_data.last_msg_timestamp = messages.back().timestamp;
+        dialog.meta.last_msg_preview = messages.back().getPreview();
+        dialog.meta.last_msg_timestamp = messages.back().created_at_ms;
     }
 
-    updateDialog(peer_id);
+    updateDialog(dialog_id);
 }
 
 std::vector<MetaDialog> DialogManager::getDialogs() const {
@@ -99,20 +97,21 @@ std::vector<MetaDialog> DialogManager::getDialogs() const {
     std::vector<MetaDialog> result;
     result.reserve(data_.size());
 
-    for (const auto& [peer_id, dialog] : data_)
-        result.push_back(dialog.meta_dialog_data);
+    for (const auto& [dialog_id, dialog] : data_) {
+        result.push_back(dialog.meta);
+    };
 
     std::sort(result.begin(), result.end(), [](const MetaDialog& a, const MetaDialog& b){
-        return a.last_activity_time > b.last_activity_time;
+        return a.last_msg_timestamp > b.last_msg_timestamp;
     });
 
     return result;
 }
 
-void DialogManager::updateDialog(int peer_id) {
+void DialogManager::updateDialog(int64_t dialog_id) {
     {
         QMutexLocker locker(&mtx_);
-        data_[peer_id].meta_dialog_data.last_activity_time = now();
+        data_[dialog_id].meta.last_msg_timestamp = now();
     }
 
     emit dialogsUpdated();
@@ -127,7 +126,7 @@ void DialogManager::dialogsLoaded(const std::vector<MetaDialog>& dialogs) {
         QMutexLocker locker(&mtx_);
         std::unordered_map<int, std::string> users;
         for(auto& d : dialogs) {
-            data_[d.peer_id].meta_dialog_data = d;
+            data_[d.dialog_id].meta = d;
             users[d.peer_id] = d.username;
         }
 

@@ -32,7 +32,7 @@ private:
     SessionManager sessionManager_;
     Handler handler_;
 
-    friend class MessageDispatcher_;
+    friend class MessageDispatcher;
 
 private:
     bool setupSocket();

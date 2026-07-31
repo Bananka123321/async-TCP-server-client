@@ -23,13 +23,13 @@ public:
     const std::string& getCurrentUsername() const;
     void setCurrentUsername(const std::string& login);
 
-    const int& getCurrentUserId() const;
-    void setCurrentUserId(const int& user_id);
+    const int getCurrentUserId() const;
+    void setCurrentUserId(const int user_id);
 
     const std::string getCurrentToken() const;
     void setCurrentToken(const std::string& token);
 
-    const std::string getUsername(const int& id) const;
+    const std::string getUsername(const int id) const;
 
     User user;
 

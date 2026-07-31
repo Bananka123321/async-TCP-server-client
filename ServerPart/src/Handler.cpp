@@ -9,8 +9,8 @@ Handler::Handler(SessionManager& sm) : userManager_(Config::getDB().getConnectio
         registerRequest(client, j);
     };
 
-    handlers_["privateMessage"] = [this](const auto& client, const auto& j) {
-        privateMessage(client, j);
+    handlers_["sendMessage"] = [this](const auto& client, const auto& j) {
+        sendMessage(client, j);
     };
 
     handlers_["searchUserRequest"] = [this](const auto& client, const auto& j) {
@@ -25,7 +25,7 @@ Handler::Handler(SessionManager& sm) : userManager_(Config::getDB().getConnectio
         getDialogsRequest(client, j);
     };
 
-    handlers_["ping"] = [this](const auto& client, const auto& j) {
+    handlers_["ping"] = [](const auto& client, const auto& j) {
         ping(client, j);
     };
 
@@ -103,52 +103,76 @@ void Handler::registerRequest(const std::shared_ptr<ClientSession>& client, cons
     authSuccess(client, user_id, j["username"]);
 }
 
-void Handler::authSuccess(const std::shared_ptr<ClientSession>& client, int id, const std::string& username) {
+void Handler::authSuccess(const std::shared_ptr<ClientSession>& client, const int id, const std::string& username) {
     client->setUser(id, username);
-    client->set_is_authenticated(true);
+    client->setIsAuthenticated(true);
     const std::string token = generateToken();
     userManager_.createSession(id, token);
     dispatcher_.sendTo(client, protocol::loginResponse(true, id, username, token, ""));
     sessionManager_.add(client);
 }
 
-void Handler::privateMessage(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j) {
-    if (!client->get_is_authenticated()) {
-        std::cerr << "SORRY, not auth\n";
+void Handler::sendMessage(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j) {
+    if (!client->getIsAuthenticated()) {
+        dispatcher_.sendTo(client, protocol::errorMessage("Not authenticated"));
         return;
     }
     
-    std::string error;
-    if(!Validator::valid_string_field(j, "text", Validator::message, error)) {
-        dispatcher_.sendTo(client, protocol::errorMessage(error));
+    Message msg;
+    try {
+        msg = j.at("data").get<Message>();
+    } catch ([[maybe_unused]] const std::exception& e) {
+        dispatcher_.sendTo(client, protocol::errorMessage("Invalid message format"));
         return;
     }
 
-    if(!Validator::valid_int_field(j, "to", 1, std::numeric_limits<long int>::max(), error)) {
-        dispatcher_.sendTo(client, protocol::errorMessage(error));
+    if (msg.sender_id != client->getUserId()) {
+        dispatcher_.sendTo(client, protocol::errorMessage("Forbidden: sender_id mismatch"));
         return;
     }
 
-    std::string cleanText = Validator::sanitize(j["text"].get<std::string_view>());
-    if (cleanText.empty()) {
-        dispatcher_.sendTo(client, protocol::errorMessage("Message is empty after sanitization"));
+    msg.sender_id = client->getUserId();
+
+    if(const auto error = Validator::validateMessage(msg); error.has_value()) {
+        dispatcher_.sendTo(client, protocol::errorMessage(error.value()));
         return;
     }
 
-    const int64_t timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-    const int msg_id = messageManager_.saveMessage(client->getUserId(), j["to"], cleanText, timestamp);
-    
-    dialogManager_.insertDialog(client->getUserId(), j["to"], msg_id, cleanText, timestamp);
-    dialogManager_.insertDialog(j["to"], client->getUserId(), msg_id, cleanText, timestamp);
-
-    const auto receiver = sessionManager_.getByUserId(j["to"]);
-    if (!receiver) return;
-
-    nlohmann::json out = j;
-    out["text"] = cleanText;
-    if (!receiver->send(out.dump())) {
-        std::cerr << "Failed to send message to user " << j["to"] << '\n';
+    if (std::holds_alternative<TextContent>(msg.payload)) {
+        auto&[text] = std::get<TextContent>(msg.payload);
+        std::string cleanText = Validator::sanitize(text);
+        if (cleanText.empty()) {
+            dispatcher_.sendTo(client, protocol::errorMessage("Message is empty"));
+            return;
+        }
+        text = std::move(cleanText);
     }
+
+    msg.created_at_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+
+    const auto saved_id = messageManager_.saveMessage(msg);
+    if (!saved_id.has_value()) {
+        dispatcher_.sendTo(client, protocol::errorMessage("Database error"));
+        return;
+    }
+
+    msg.id = saved_id.value();
+    dialogManager_.updateLastMessage(msg);
+
+    const auto& participants = dialogManager_.getDialogParticipants(msg.dialog_id);
+    for (const auto participant : participants) {
+        if (participant == msg.sender_id) {
+            continue;
+        }
+
+        if (const auto& receiver = sessionManager_.getByUserId(participant)) {
+            if (!receiver->send(protocol::sendMessage(msg))) {
+                std::cerr << "Failed to send message to dialog " << msg.dialog_id << '\n';
+            }
+        }
+    }
+
+    //Последующе подтверждение отправки сообщения(статус: отправлено)
 }
 
 void Handler::setDisconnectHandler(const std::function<void(std::shared_ptr<ClientSession>)> &cb) {
@@ -156,31 +180,67 @@ void Handler::setDisconnectHandler(const std::function<void(std::shared_ptr<Clie
 }
 
 void Handler::searchUserRequest(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j) {
+    if (!client->getIsAuthenticated()) {
+        dispatcher_.sendTo(client, protocol::errorMessage("Not authenticated"));
+        return;
+    }
+
     if(std::string error; !Validator::valid_string_field(j, "username", Validator::search, error)) {
         dispatcher_.sendTo(client, protocol::errorMessage(error));
         return;
     }
 
-    const auto users = userManager_.searchUsers(j["username"]);
-
+    const auto users = userManager_.searchUsers(j["username"].get<std::string>());
     dispatcher_.sendTo(client, protocol::searchUserResponse(users));
 }
 
 void Handler::historyRequest(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j) {
-    if(!client->get_is_authenticated()) return;
-    const auto history = messageManager_.getHistory(client->getUserId(), j["peer_id"], j["last_msg_id"], j["limit"]);
-    dispatcher_.sendTo(client, protocol::historyResponse(!history.empty(), j["peer_id"], history));
+    if (!client->getIsAuthenticated()) {
+        dispatcher_.sendTo(client, protocol::errorMessage("Not authenticated"));
+        return;
+    }
+
+    if (!j.contains("dialog_id") || !j.contains("last_msg_id") || !j.contains("limit")) {
+        dispatcher_.sendTo(client, protocol::errorMessage("Missing required fields"));
+        return;
+    }
+
+    int64_t dialog_id;
+    int64_t last_msg_id;
+    int limit;
+
+    try {
+        dialog_id = j["dialog_id"].get<int64_t>();
+        last_msg_id = j["last_msg_id"].get<int64_t>();
+        limit = j["limit"].get<int>();
+    } catch (const std::exception& e) {
+        dispatcher_.sendTo(client, protocol::errorMessage("Invalid parameter types. " + std::string(e.what())));
+        return;
+    }
+
+    if (limit <= 0 || limit > 100) {
+        dispatcher_.sendTo(client, protocol::errorMessage("Limit must be between 1 and 100"));
+        return;
+    }
+
+    auto participants = dialogManager_.getDialogParticipants(dialog_id);
+    if (std::ranges::find(participants, client->getUserId()) == participants.end()) {
+        dispatcher_.sendTo(client, protocol::errorMessage("You are not a participant of this dialog"));
+        return;
+    }
+
+    const auto history = messageManager_.getHistory(dialog_id, last_msg_id, limit);
+
+    dispatcher_.sendTo(client, protocol::historyResponse(!history.empty(), dialog_id, history));
 }
-
 void Handler::getDialogsRequest(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j) {
-    if(!client->get_is_authenticated()) return;
+    if(!client->getIsAuthenticated()) {
+        dispatcher_.sendTo(client, protocol::errorMessage("Not authenticated"));
+        return;
+    }
 
-    const auto dialogs = dialogManager_.getUserDialogs(client->getUserId());
-    std::vector<MetaDialog> metas;
-    for (const auto&[peer_id, username, last_msg_text, last_msg_timestamp, last_activity_time] : dialogs)
-        metas.push_back({.peer_id = peer_id, .username = username, .last_msg_text = last_msg_text, .last_msg_timestamp = last_msg_timestamp, .last_activity_time = last_activity_time});
-
-    dispatcher_.sendTo(client, protocol::getDialogsResponse(!metas.empty(), metas));
+    auto dialogs = dialogManager_.getUserDialogs(client->getUserId());
+    dispatcher_.sendTo(client, protocol::getDialogsResponse(!dialogs.empty(), std::move(dialogs)));
 }
 
 void Handler::ping(const std::shared_ptr<ClientSession> &client, const nlohmann::json& j) {
@@ -203,7 +263,7 @@ void Handler::resumeConnectionRequest(const std::shared_ptr<ClientSession>& clie
 
     const int id = user_id.value();
     client->setUser(id, "");
-    client->set_is_authenticated(true);
+    client->setIsAuthenticated(true);
     sessionManager_.add(client);
     dispatcher_.sendTo(client, protocol::resumeConnectionResponse(true));
 }

@@ -1,4 +1,5 @@
 #include "../include/TcpServer.h"
+#include <openssl/err.h>
 
 TcpServer::TcpServer(const int port) : port_(port), serverSocket_(-1), sessionManager_(), handler_(sessionManager_) {
     handler_.setDisconnectHandler([this](const std::shared_ptr<ClientSession> &client) {
@@ -11,21 +12,25 @@ TcpServer::TcpServer(const int port) : port_(port), serverSocket_(-1), sessionMa
     g_ssl_ctx = SSL_CTX_new(TLS_server_method());
     if (!g_ssl_ctx) {
         std::cerr << "Failed to create SSL context\n";
+        ERR_print_errors_fp(stderr);
         return;
     }
 
     if (SSL_CTX_use_certificate_file(g_ssl_ctx, "server.crt", SSL_FILETYPE_PEM) <= 0) {
         std::cerr << "Failed to load certificate\n";
+        ERR_print_errors_fp(stderr);
         return;
     }
     
     if (SSL_CTX_use_PrivateKey_file(g_ssl_ctx, "server.key", SSL_FILETYPE_PEM) <= 0) {
         std::cerr << "Failed to load private key\n";
+        ERR_print_errors_fp(stderr);
         return;
     }
 
     if (!SSL_CTX_check_private_key(g_ssl_ctx)) {
         std::cerr << "Failed to check private key\n";
+        ERR_print_errors_fp(stderr);
         return;
     }
 }
@@ -151,11 +156,9 @@ void TcpServer::startClientMonitoring() {
         while (monitorRunning_.load()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(HEARTBEAT_INTERVAL_MS));
 
-            int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+            const int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
-            auto clients = sessionManager_.getAll();
-
-            for (const auto& client : clients) {
+            for (auto clients = sessionManager_.getAll(); const auto& client : clients) {
                 if(now - client->getLastActivity() > SESSION_TIMEOUT_MS) {
                     clientDisconnect(client);
                 }

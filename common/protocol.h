@@ -3,6 +3,8 @@
 #include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
+#include <variant>
+
 #include "Message.h"
 #include "MetaDialog.h"
 
@@ -29,20 +31,62 @@ inline void from_json(const nlohmann::json& j, User& u) {
 
 inline void to_json(nlohmann::json& j, const Message& m) {
     j = {
-        {"message_id", m.msgId},
-        {"receiver_id", m.receiverId},
-        {"sender_id", m.senderId},
-        {"text", m.text},
-        {"timestamp", m.timestamp}
+        {"id", m.id},
+        {"dialog_id", m.dialog_id},
+        {"sender_id", m.sender_id},
+        {"type", static_cast<uint8_t>(m.type)},
+        {"timestamp", m.created_at_ms},
+        {"payload", std::visit([]<typename T0>(const T0& content) {
+            nlohmann::json pj;
+            using T = std::decay_t<T0>;
+
+            if constexpr (std::is_same_v<T, TextContent>) {
+                pj["text"] = content.text;
+            }
+            else if constexpr (std::is_same_v<T, MediaContent>) {
+                pj["url"] = content.url;
+                pj["filename"] = content.filename;
+                pj["size_bytes"] = content.size_bytes;
+                pj["caption"] = content.caption;
+            }
+            else if constexpr (std::is_same_v<T, VoiceContent>) {
+                pj["url"] = content.url;
+                pj["duration_sec"] = content.duration_sec;
+            }
+            return pj;
+        }, m.payload)}
     };
 }
 
 inline void from_json(const nlohmann::json& j, Message& m) {
-    j.at("message_id").get_to(m.msgId);
-    j.at("receiver_id").get_to(m.receiverId);
-    j.at("sender_id").get_to(m.senderId);
-    j.at("text").get_to(m.text);
-    j.at("timestamp").get_to(m.timestamp);
+    m.id = j.value("id", 0);
+    m.dialog_id = j.value("dialog_id", 0);
+    m.sender_id = j.value("sender_id", 0);
+    m.type = static_cast<MessageType>(j.at("type").get<uint8_t>());
+    m.created_at_ms = j.value("timestamp", 0);
+
+    const auto& payload_j = j.at("payload");
+
+    if (m.type == MessageType::Text) {
+        m.payload = TextContent{ .text = payload_j.value("text", "") };
+    }
+    else if (m.type == MessageType::Image || m.type == MessageType::File) {
+        m.payload = MediaContent{
+            .url = payload_j.value("url", ""),
+            .caption = payload_j.value("caption", ""),
+            .filename = payload_j.value("filename", ""),
+            .size_bytes = payload_j.value("size_bytes", 0ULL)
+        };
+    }
+    else if (m.type == MessageType::Voice) {
+        m.payload = VoiceContent{
+            .url = payload_j.value("url", ""),
+            .duration_sec = payload_j.value("duration_sec", 0U)
+        };
+    }
+    else {
+        throw std::runtime_error("Unknown message type in JSON");
+    }
 }
 
 //======================== MetaDialog ======================================
@@ -50,13 +94,17 @@ inline void from_json(const nlohmann::json& j, Message& m) {
 inline void to_json(nlohmann::json& j, const MetaDialog& md) {
     j = {
         {"peer_id", md.peer_id},
-        {"username", md.username}
+        {"username", md.username},
+        {"last_msg_preview", md.last_msg_preview},
+        {"last_msg_timestamp", md.last_msg_timestamp}
     };
 }
 
 inline void from_json(const nlohmann::json& j, MetaDialog& md) {
     j.at("peer_id").get_to(md.peer_id);
     j.at("username").get_to(md.username);
+    j.at("last_msg_preview").get_to(md.last_msg_preview);
+    j.at("last_msg_timestamp").get_to(md.last_msg_timestamp);
 }
 
 namespace protocol {
@@ -73,14 +121,6 @@ namespace protocol {
 //     return j.dump();
 // }
 
-inline std::string privateMessage(const int& sender, const int& user, const std::string& text) {
-    nlohmann::json j;
-    j["type"] = "privateMessage";
-    j["text"] = text;
-    j["from"] = sender;
-    j["to"] = user;
-    return j.dump();
-}
 
 //      CLIENT --> SERVER
 //=================================================================================================================================================================
@@ -108,10 +148,10 @@ inline std::string searchUserRequest(const std::string& username) {
     return j.dump();
 }
 
-inline std::string historyRequest(const int& receiver, const int& last_msg_id, const int& limit) {
+inline std::string historyRequest(const int64_t dialog_id, const int64_t last_msg_id, int limit) {
     nlohmann::json j;
     j["type"] = "historyRequest";
-    j["peer_id"] = receiver;
+    j["dialog_id"] = dialog_id;
     j["last_msg_id"] = last_msg_id;
     j["limit"] = limit;
     return j.dump();
@@ -139,7 +179,14 @@ inline std::string resumeConnectionRequest(const std::string& token) {
 //      SERVER --> CLIENT
 //=================================================================================================================================================================
 
-inline std::string loginResponse(const bool& success, const int& user_id, const std::string& login, const std::string& token, const std::string& reason = "") {
+inline std::string sendMessage(const Message& msg) {
+    nlohmann::json j;
+    j["type"] = "sendMessage";
+    j["data"] = msg;
+    return j.dump();
+}
+
+inline std::string loginResponse(bool success, int user_id, const std::string& login, const std::string& token, const std::string& reason = "") {
     nlohmann::json j;
     j["type"] = "loginResponse";
     j["success"] = success;
@@ -150,7 +197,7 @@ inline std::string loginResponse(const bool& success, const int& user_id, const 
     return j.dump();
 }
 
-inline std::string registerResponse(const bool& success, const int& user_id, const std::string& login, const std::string& token, const std::string& reason = "") {
+inline std::string registerResponse(bool success, int user_id, const std::string& login, const std::string& token, const std::string& reason = "") {
     nlohmann::json j;
     j["type"] = "registerResponse";
     j["success"] = success;
@@ -158,20 +205,6 @@ inline std::string registerResponse(const bool& success, const int& user_id, con
     j["username"] = login;
     j["token"] = token;
     j["error"] = reason;
-    return j.dump();
-}
-
-inline std::string userList(const std::unordered_map<int, std::string>& users) {
-    nlohmann::json j;
-    j["type"] = "userList";
-    j["users"] = users;
-    return j.dump();
-}
-
-inline std::string usernameAvailability(bool available) {
-    nlohmann::json j;
-    j["type"] = "usernameAvailability";
-    j["available"] = available;
     return j.dump();
 }
 
@@ -189,17 +222,17 @@ inline std::string errorMessage(const std::string& reason) {
     return j.dump();
 }
 
-inline std::string historyResponse(const bool& success, const int& peer_id, const std::vector<Message>& messages, const std::string& reason = "") {
+inline std::string historyResponse(bool success, const int64_t dialog_id, const std::vector<Message>& messages, const std::string& reason = "") {
     nlohmann::json j;
     j["type"] = "historyResponse";
     j["success"] = success;
-    j["peer_id"] = peer_id;
+    j["dialog_id"] = dialog_id;
     j["messages"] = messages;
     j["error"] = reason;
     return j.dump();
 }
 
-inline std::string getDialogsResponse(const bool& success, const std::vector<MetaDialog>& dialogs, const std::string& reason = "") {
+inline std::string getDialogsResponse(bool success, const std::vector<MetaDialog>& dialogs, const std::string& reason = "") {
     nlohmann::json j;
     j["type"] = "getDialogsResponse";
     j["success"] = success;

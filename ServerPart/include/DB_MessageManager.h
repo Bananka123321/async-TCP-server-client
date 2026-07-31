@@ -2,16 +2,21 @@
 #include <pqxx/pqxx>
 #include <string>
 #include <vector>
+#include <optional>
 
 #include "../common/Message.h"
+#include "nlohmann/json.hpp"
 
 class DB_MessageManager {
 public:
     explicit DB_MessageManager(const std::string& conn_str);
 
-    int saveMessage(int sender_id, int receiver_id, const std::string& text, int64_t timestamp);
-    std::vector<Message> getHistory(int user_a, int user_b, int last_msg_id, int limit);
+    std::optional<int64_t> saveMessage(const Message& message);
+    std::vector<Message> getHistory(int64_t dialog_id, int64_t before_id, int limit);
     
 private:
     pqxx::connection conn_;
+
+    static std::string serializePayload(const MessagePayload& payload);
+    static MessagePayload deserializePayload(const std::string& json, MessageType type);
 };

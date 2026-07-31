@@ -25,29 +25,28 @@ public:
     MainWindow(QWidget *parent, AppState* state, DialogManager* manager);
     ~MainWindow();
 
-    // void newMessage(int sender, const std::string& text);
-
 signals:
-    void sendMessageRequest(const int& to, const std::string& text);
+    void sendMessageRequest(const Message& message);
     void searchUser(const std::string& text);
-    void loadHistoryRequest(int peer_id, int last_msg_id);
+    void loadHistoryRequest(const int64_t dialog_id, const int64_t last_msg_id);
 
 private:
-    Ui::MainWindows *ui;
+    Ui::MainWindows *ui_;
 
-    QCompleter* completer;
-    QStringListModel* model;
+    QCompleter* completer_;
+    QStringListModel* model_;
 
     AppState* state_;
     DialogManager* manager_;
 
-    int selectedUserId = -1;
+    int selectedDialogId_ = -1;
 
+    std::unordered_map<std::string, int> searchMap_;
+
+private:
     void refreshDialogs();
     void refreshCurrentChat();
     void openDialog(int id);
-
-    std::unordered_map<std::string, int> searchMap;
 
     void appendMessageToView(const Message& msg);
     void prependMessagesToView(const std::vector<Message>& messages);

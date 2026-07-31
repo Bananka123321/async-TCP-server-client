@@ -3,41 +3,50 @@
 
 DB_MessageManager::DB_MessageManager(const std::string& conn_str) : conn_(conn_str) {};
 
-int DB_MessageManager::saveMessage(int sender_id, int receiver_id, const std::string& text, int64_t timestamp) {
+std::optional<int64_t> DB_MessageManager::saveMessage(const Message& message) {
     try {
         pqxx::work txn(conn_);
+
+        std::string payload_json = serializePayload(message.payload);
         const auto result = txn.exec(
-            "INSERT INTO messages (sender_id, receiver_id, text, timestamp)"
-            " VALUES ($1, $2, $3, $4) RETURNING id",
-            pqxx::params(sender_id, receiver_id, text, timestamp));
+            "INSERT INTO messages (dialog_id, sender_id, type, created_at, payload)"
+            " VALUES ($1, $2, $3, to_timestamp($4 / 1000.0), $5::jsonb) RETURNING id",
+            pqxx::params(message.dialog_id, message.sender_id, static_cast<int>(message.type), message.created_at_ms, payload_json));
 
         txn.commit();
-        return result[0][0].as<int>();
+        return result[0][0].as<int64_t>();
     } catch(const std::exception& e) {
         std::cerr << e.what() << '\n';
-        return -1;
+        return std::nullopt;
     }
 };
 
-std::vector<Message> DB_MessageManager::getHistory(int user_a, int user_b, int last_msg_id, int limit) {
+std::vector<Message> DB_MessageManager::getHistory(int64_t dialog_id, int64_t before_id, int limit) {
     std::vector<Message> result;
     try {
         pqxx::work txn(conn_);
         const auto rows = txn.exec(
-            "SELECT id, sender_id, receiver_id, text, timestamp FROM messages"
-            " WHERE ((sender_id = $1 AND receiver_id = $2) OR (sender_id = $2 AND receiver_id = $1)) AND id < $3"
-            " ORDER BY id DESC LIMIT $4",
-            pqxx::params(user_a, user_b, last_msg_id, limit)
+        "SELECT id, dialog_id, sender_id, type, "
+        "EXTRACT(EPOCH FROM created_at) * 1000 as timestamp_ms, "
+        "payload::text "
+        "FROM messages "
+        "WHERE dialog_id = $1 AND id < $2 "
+        "ORDER BY id DESC LIMIT $3",
+            pqxx::params(dialog_id, before_id, limit)
         );
 
         for (const auto& row : rows) {
-            result.push_back({
-                .msgId = row["id"].as<int>(),
-                .senderId = row["sender_id"].as<int>(),
-                .receiverId = row["receiver_id"].as<int>(),
-                .text = row["text"].as<std::string>(),
-                .timestamp = row["timestamp"].as<int64_t>()
-            });
+            Message msg;
+            msg.id = row["id"].as<int64_t>();
+            msg.dialog_id = row["dialog_id"].as<int>();
+            msg.sender_id = row["sender_id"].as<int>();
+            msg.type = static_cast<MessageType>(row["type"].as<int>());
+            msg.created_at_ms = row["timestamp_ms"].as<int64_t>();
+
+            auto payload_json = row["payload"].as<std::string>();
+            msg.payload = deserializePayload(payload_json, msg.type);
+
+            result.push_back(std::move(msg));
         }
     } catch(const std::exception& e) {
         std::cerr << e.what() << '\n';
@@ -45,3 +54,56 @@ std::vector<Message> DB_MessageManager::getHistory(int user_a, int user_b, int l
     }
     return result;
 };
+
+std::string DB_MessageManager::serializePayload(const MessagePayload& payload) {
+    return std::visit([]<typename T0>(const T0& content) -> std::string {
+        using T = std::decay_t<T0>;
+
+        nlohmann::json j;
+
+        if constexpr (std::is_same_v<T, TextContent>) {
+            j["text"] = content.text;
+        }
+        else if constexpr (std::is_same_v<T, MediaContent>) {
+            j["url"] = content.url;
+            j["filename"] = content.filename;
+            j["size_bytes"] = content.size_bytes;
+            j["caption"] = content.caption;
+        }
+        else if constexpr (std::is_same_v<T, VoiceContent>) {
+            j["url"] = content.url;
+            j["duration_sec"] = content.duration_sec;
+        }
+
+        return j.dump();
+    }, payload);
+}
+
+MessagePayload DB_MessageManager::deserializePayload(const std::string& json, const MessageType type) {
+    auto j = nlohmann::json::parse(json);
+
+    switch (type) {
+        case MessageType::Text:
+            return TextContent{
+            .text = j["text"].get<std::string>()
+        };
+
+        case MessageType::Image:
+        case MessageType::File:
+            return MediaContent{
+            .url = j["url"].get<std::string>(),
+            .caption = j.value("caption", ""),
+            .filename = j.value("filename", ""),
+            .size_bytes = j.value("size_bytes", 0ULL)
+        };
+
+        case MessageType::Voice:
+            return VoiceContent{
+            .url = j["url"].get<std::string>(),
+            .duration_sec = j["duration_sec"].get<uint32_t>()
+        };
+
+        default:
+            throw std::runtime_error("Unknown message type");
+    }
+}

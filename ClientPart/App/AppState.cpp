@@ -19,15 +19,15 @@ void AppState::setCurrentUsername(const std::string& login) {
     user.username = login;
 }
 
-void AppState::setCurrentUserId(const int& user_id) {
+void AppState::setCurrentUserId(const int user_id) {
     user.user_id = user_id;
 }
 
-const int& AppState::getCurrentUserId() const {
+const int AppState::getCurrentUserId() const {
     return user.user_id;
 }
 
-const std::string AppState::getUsername(const int& id) const {
+const std::string AppState::getUsername(const int id) const {
     auto it = users.find(id);
     if (it != users.end())
         return it->second;
