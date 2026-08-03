@@ -1,29 +1,18 @@
 #pragma once
 
-#ifdef _WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h>
-typedef SOCKET Socket;
-#pragma comment(lib, "Ws2_32.lib")
-#else
-#include <sys/socket.h>
-#include <netinet/tcp.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#endif
-
-#include <string>
-#include <iostream>
-#include <thread>
-#include <atomic>
 #include <QObject>
+#include <QSslSocket>
+#include <QString>
+#include <string>
+#include <atomic>
+#include <functional>
 
 #include "MessageRouter.h"
+#include "PacketIO_Client.h"
 
-static SSL_CTX* g_ssl_ctx = nullptr;
-
-class TCPClient : public QObject{
+class TCPClient : public QObject {
     Q_OBJECT
+
 public:
     TCPClient(int port, MessageRouter* msgRouter);
     ~TCPClient();
@@ -32,25 +21,25 @@ public:
     void disconnect();
     bool isConnected() const;
 
-    void handoverSocket();
     std::function<void(const std::string&)> onMessage;
 
 signals:
     void connectionLose();
     void connected();
 
+private slots:
+    void onEncrypted();
+    void onReadyRead();
+    void onDisconnected();
+    void onSslErrors(const QList<QSslError> &errors);
+
 private:
     int port_;
-    int clientSocket;
+    QSslSocket* socket_ = nullptr;
     MessageRouter* router_;
 
-    bool setupSocket();
-    void run();
-
-    SSL* ssl;
-    std::thread work;
-
+    QByteArray m_buffer;
     std::atomic<bool> bConnected{false};
 
-    void runLoop();
+    bool setupSocket();
 };

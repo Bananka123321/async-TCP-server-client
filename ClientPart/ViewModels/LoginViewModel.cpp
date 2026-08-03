@@ -11,7 +11,6 @@ LoginViewModel::LoginViewModel(MessageRouter* router, Handler* handler, AppContr
     });
 
     connect(handler_, &Handler::S_loginFailed, this, [this](const std::string& reason) {
-        qWarning() << "Login failed:" << QString::fromStdString(reason);
         emit loginFailed(QString::fromStdString(reason));
     });
 
@@ -20,7 +19,6 @@ LoginViewModel::LoginViewModel(MessageRouter* router, Handler* handler, AppContr
     });
 
     connect(handler_, &Handler::S_registerFailed, this, [this](const std::string& reason) {
-        qWarning() << "Register failed:" << QString::fromStdString(reason);
         emit registerFailed(QString::fromStdString(reason));
     });
 }

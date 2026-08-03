@@ -42,8 +42,8 @@ void DB_DialogManager::updateLastMessage(const Message &msg) {
     }
 }
 
-std::vector<MetaDialog> DB_DialogManager::getUserDialogs(int user_id) {
-    std::vector<MetaDialog> result;
+std::vector<MetaDialog_Client> DB_DialogManager::getUserDialogs(int user_id) {
+    std::vector<MetaDialog_Client> result;
     try {
         pqxx::work txn(conn_);
 
@@ -75,7 +75,7 @@ std::vector<MetaDialog> DB_DialogManager::getUserDialogs(int user_id) {
         result.reserve(rows.size());
 
         for (const auto& row : rows) {
-            MetaDialog md;
+            MetaDialog_Client md;
             md.dialog_id = row["dialog_id"].as<int64_t>();
             md.peer_id = row["peer_id"].as<int>();
             md.username = row["peer_username"].as<std::string>();

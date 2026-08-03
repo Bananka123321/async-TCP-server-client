@@ -18,7 +18,7 @@ void DialogManager::start() {
         emit historyLoaded(dialog_id, messages);
     });
 
-    connect(handler_, &Handler::S_DialogsLoaded, this, [this](const std::vector<MetaDialog>& dialogs) {
+    connect(handler_, &Handler::S_DialogsLoaded, this, [this](const std::vector<MetaDialog_Client>& dialogs) {
         dialogsLoaded(dialogs);
     });
 }
@@ -92,16 +92,16 @@ void DialogManager::setHistory(int64_t dialog_id, const std::vector<Message>& me
     updateDialog(dialog_id);
 }
 
-std::vector<MetaDialog> DialogManager::getDialogs() const {
+std::vector<MetaDialog_Client> DialogManager::getDialogs() const {
     QMutexLocker locker(&mtx_);
-    std::vector<MetaDialog> result;
+    std::vector<MetaDialog_Client> result;
     result.reserve(data_.size());
 
     for (const auto& [dialog_id, dialog] : data_) {
         result.push_back(dialog.meta);
     };
 
-    std::sort(result.begin(), result.end(), [](const MetaDialog& a, const MetaDialog& b){
+    std::sort(result.begin(), result.end(), [](const MetaDialog_Client& a, const MetaDialog_Client& b){
         return a.last_msg_timestamp > b.last_msg_timestamp;
     });
 
@@ -121,7 +121,7 @@ int64_t DialogManager::now() const {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
-void DialogManager::dialogsLoaded(const std::vector<MetaDialog>& dialogs) {
+void DialogManager::dialogsLoaded(const std::vector<MetaDialog_Client>& dialogs) {
     {
         QMutexLocker locker(&mtx_);
         std::unordered_map<int, std::string> users;

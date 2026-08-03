@@ -1,49 +1,54 @@
+#include <QGuiApplication>
+#include <QQmlApplicationEngine>
+#include <QQmlContext>
+#include <QMetaObject>
+#include <memory>
+
 #include "MessageRouter.h"
 #include "tcp_client.h"
 #include "Handler.h"
-#include "uicontroller.h"
 #include "appcontroller.h"
 #include "StateBinder.h"
 #include "DialogManager.h"
-
-#include <QApplication>
-#include <QMetaObject>
-#include "QFile"
+#include "ViewModels/LoginViewModel.h"
 
 int main(int argc, char *argv[]) {
-    QApplication a(argc, argv);
+    QGuiApplication app(argc, argv);
 
-    QFile styleFile(":/styles/style.qss");
+    auto state = std::make_unique<AppState>();
+    auto router = std::make_unique<MessageRouter>();
+    auto handler = std::make_unique<Handler>();
+    auto client = std::make_unique<TCPClient>(6767, router.get());
+    auto appController = std::make_unique<AppController>(router.get(), state.get(), handler.get(), client.get());
+    auto dialogManager = std::make_unique<DialogManager>(handler.get(), state.get());
+    auto binder = std::make_unique<StateChanger>(handler.get(), state.get());
 
-    if (styleFile.open(QFile::ReadOnly)) {
-        QString styleSheet = QLatin1String(styleFile.readAll());
-        a.setStyleSheet(styleSheet);
-    } else {
-        qWarning() << "Could not open style sheet";
-    }
-
-    AppState* state = new AppState();
-    MessageRouter* router = new MessageRouter();
-    Handler* handler = new Handler();
-    TCPClient* client = new TCPClient(6767, router);
-    AppController* AController = new AppController(router, state, handler, client);
-    DialogManager* manager = new DialogManager(handler, state);
-    UIController* controller = new UIController(router, state, handler, AController, manager);
-    StateChanger* binder = new StateChanger(handler, state);
-
-    client->onMessage = [handler](const std::string& msg) {
-        QMetaObject::invokeMethod(handler, [handler, msg]() {
-            handler->handleMessage(msg);
+    client->onMessage = [h = handler.get()](const std::string& msg) {
+        QMetaObject::invokeMethod(h, [h, msg]() {
+            h->handleMessage(msg);
         }, Qt::QueuedConnection);
     };
 
-    std::thread([client]() { client->start(); }).detach();
+    if (!client->start()) {
+        qWarning() << "[MAIN] Failed to start TCP client";
+    }
 
-    controller->start();
-    a.exec();
-    delete client;
-    delete handler;
-    delete state;
-    delete controller;
-    return 0;
+    auto loginVM = std::make_unique<LoginViewModel>(router.get(), handler.get(), appController.get(), &app);
+
+    QQmlApplicationEngine engine;
+    engine.rootContext()->setContextProperty("loginViewModel", loginVM.get());
+    engine.rootContext()->setContextProperty("appController", appController.get());
+
+    engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
+
+    if (engine.rootObjects().isEmpty()) {
+        qWarning() << "[MAIN] Failed to load QML";
+        return -1;
+    }
+
+    dialogManager->start();
+
+    int result = app.exec();
+
+    return result;
 }

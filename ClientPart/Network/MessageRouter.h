@@ -1,13 +1,13 @@
 #pragma once
 
 #include <string>
-#include <openssl/ssl.h>
+#include <QSslSocket>
 #include <QObject>
 #include <mutex>
 #include <atomic>
 
 #include "protocol.h"
-#include "PacketIO.h"
+#include "PacketIO_Client.h"
 
 class MessageRouter : public QObject{
     Q_OBJECT
@@ -23,11 +23,11 @@ public:
     void ping();
     void resumeConnectionRequest(const std::string& token);
 
-    void setSSL(SSL* ssl);
+    void setSSL(QSslSocket* socket);
     void setReconnecting(bool value);
 
 private:
-    SSL* ssl_;
+    QSslSocket* socket_ = nullptr;
     std::mutex mutex_;
     std::atomic<bool> isReconnecting_{false};
 

@@ -1,16 +1,22 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 project(Client)
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets Test)
+find_package(Qt6 REQUIRED COMPONENTS
+    Widgets Quick QuickControls2 Qml Network
+)
 
 set(CLIENT_SOURCES
     main.cpp
     Network/tcp_client.cpp
     Network/MessageRouter.cpp
+    Network/PacketIO_Client.cpp
 
     App/AppState.cpp
     App/Handler.cpp
@@ -18,18 +24,15 @@ set(CLIENT_SOURCES
     App/StateBinder.cpp
     App/DialogManager.cpp
 
+    ViewModels/LoginViewModel.cpp
 
-    UI/loginwindow.cpp
-    UI/mainwindow.cpp
-    UI/uicontroller.cpp
-
-    ../common/PacketIO.cpp
     ../common/Validator.cpp
 )
 
 set(CLIENT_HEADERS
     Network/tcp_client.h
     Network/MessageRouter.h
+    Network/PacketIO_Client.h
 
     App/AppState.h
     App/Handler.h
@@ -37,44 +40,71 @@ set(CLIENT_HEADERS
     App/StateBinder.h
     App/DialogManager.h
 
+    ViewModels/LoginViewModel.h
 
-    UI/loginwindow.h
-    UI/mainwindow.h
-    UI/uicontroller.h
-
-    ../common/PacketIO.h
     ../common/Message.h
     ../common/protocol.h
     ../common/Validator.h
 )
 
-find_package(OpenSSL REQUIRED)
-
-# add_subdirectory(tests)
-
 qt_add_executable(Client
     ${CLIENT_SOURCES}
     ${CLIENT_HEADERS}
 
-    UI/loginwindow.ui
-    UI/mainwindow.ui
-
     resources.qrc
+    qml.qrc
+)
+
+set_target_properties(Client PROPERTIES
+   QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android")
+
+qt_add_qml_module(Client
+    URI ClientModule
+    VERSION 1.0
+    QML_FILES
+        qml/Main.qml
+        qml/LoginScreen.qml
+        qml/MainScreen.qml
+        qml/RegisterScreen.qml
+        qml/DesktopLayout.qml
+        qml/MobileLayout.qml
+    NO_PLUGIN
 )
 
 target_include_directories(Client PRIVATE
     Network
     App
-    UI
+    ViewModels
     ../common
     styles
+    qml
 )
 
 target_link_libraries(Client PRIVATE
     Qt6::Widgets
-    OpenSSL::SSL
+    Qt6::Network
+    Qt6::Quick
+    Qt6::QuickControls2
+    Qt6::Qml
 )
 
 if (WIN32)
     target_link_libraries(Client PRIVATE ws2_32)
+endif()
+
+if (ANDROID)
+    include(FetchContent)
+    FetchContent_Declare(
+      android_openssl
+      DOWNLOAD_EXTRACT_TIMESTAMP true
+      URL https://github.com/KDAB/android_openssl/archive/refs/heads/master.zip
+    )
+    FetchContent_MakeAvailable(android_openssl)
+    include(${android_openssl_SOURCE_DIR}/android_openssl.cmake)
+    add_android_openssl_libraries(Client)
+endif()
+
+if (NOT ANDROID)
+    find_package(OpenSSL REQUIRED)
+    target_link_libraries(Client PRIVATE OpenSSL::SSL OpenSSL::Crypto)
 endif()

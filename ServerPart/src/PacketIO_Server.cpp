@@ -1,8 +1,8 @@
-#include "PacketIO.h"
+#include "PacketIO_Server.h"
 #include <iostream>
 #include <openssl/err.h>
 
-bool PacketIO::sendAll(SSL* ssl, const void* data, const size_t size) {
+bool PacketIO_Server::sendAll(SSL* ssl, const void* data, const size_t size) {
     size_t total = 0;
     while (total < size) {
         const int sent = SSL_write(ssl, static_cast<const char*>(data) + total, static_cast<int>(size - total));
@@ -13,7 +13,7 @@ bool PacketIO::sendAll(SSL* ssl, const void* data, const size_t size) {
     return true;
 }
 
-bool PacketIO::sendPacket(SSL* ssl, const std::string& data) {
+bool PacketIO_Server::sendPacket(SSL* ssl, const std::string& data) {
     const uint32_t len = htonl(static_cast<uint32_t>(data.size()));
 
     if (!sendAll(ssl, &len, sizeof(len)))
@@ -25,7 +25,7 @@ bool PacketIO::sendPacket(SSL* ssl, const std::string& data) {
     return true;
 }
 
-bool PacketIO::recvAll(SSL* ssl, void* data, const size_t size) {
+bool PacketIO_Server::recvAll(SSL* ssl, void* data, const size_t size) {
     size_t total = 0;
     while (total < size) {
         const int bytes = SSL_read(ssl, static_cast<char*>(data) + total, static_cast<int>(size - total));
@@ -50,7 +50,7 @@ bool PacketIO::recvAll(SSL* ssl, void* data, const size_t size) {
     return true;
 }
 
-bool PacketIO::recvPacket(SSL* ssl, std::string& data) {
+bool PacketIO_Server::recvPacket(SSL* ssl, std::string& data) {
     uint32_t len;
     if (!recvAll(ssl, &len, sizeof(len))) return false;
 

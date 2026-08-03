@@ -1,141 +1,110 @@
 #include "tcp_client.h"
-#include <QString>
-#include <openssl/err.h>
 
-QString IPADRESS_dev = "127.0.0.1";
-QString IPADRESS_dep = "31.192.108.37";
+#ifdef Q_OS_ANDROID
+const QString IPADRESS_dev = "192.168.0.182";
+#else
+const QString IPADRESS_dev = "127.0.0.1";
+#endif
 
-TCPClient::TCPClient(int port, MessageRouter* msgRouter) : port_(port), clientSocket(-1), router_(msgRouter) {
-    SSL_load_error_strings();
-    OpenSSL_add_ssl_algorithms();
+const QString IPADRESS_dep = "31.192.108.37";
 
-    g_ssl_ctx = SSL_CTX_new(TLS_client_method());
-    if(!g_ssl_ctx) {
-        return;
-    }
-
-    SSL_CTX_set_verify(g_ssl_ctx, SSL_VERIFY_NONE, nullptr);
-}
+TCPClient::TCPClient(int port, MessageRouter* msgRouter) : port_(port), router_(msgRouter), socket_(nullptr), bConnected(false) {}
 
 TCPClient::~TCPClient() {
-    if(ssl) {
-        SSL_shutdown(ssl);
-        SSL_free(ssl);
-        ssl = nullptr;
-    }
-
-    if (clientSocket != -1) {
-#ifdef _WIN32
-        closesocket(clientSocket);
-#else
-        close(clientSocket);
-#endif
-    }
+    disconnect();
 }
 
 bool TCPClient::start() {
-#ifdef _WIN32
-    WSADATA wsa;
-    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
-        std::cerr << "WSAStartup failed\n";
-        return false;
-    }
-#endif
-
-    if(work.joinable()) work.join();
-    if(ssl) {
-        SSL_free(ssl);
-        ssl = nullptr;
-    }
-    if(clientSocket != -1) {
-#ifdef _WIN32
-        closesocket(clientSocket);
-#else
-        close(clientSocket);
-#endif
-        clientSocket = -1;
+    if (socket_ && socket_->state() == QAbstractSocket::ConnectedState) {
+        return true;
     }
 
-    if (!setupSocket()) return false;
-    work = std::thread([this](){
-        runLoop();
-    });
-    return true;
+    return setupSocket();
 }
 
 bool TCPClient::setupSocket() {
-    clientSocket = socket(AF_INET, SOCK_STREAM ,IPPROTO_TCP);
-    if (clientSocket == -1) {
+    socket_ = new QSslSocket(this);
+
+    connect(socket_, &QSslSocket::encrypted, this, &TCPClient::onEncrypted);
+    connect(socket_, &QSslSocket::readyRead, this, &TCPClient::onReadyRead);
+    connect(socket_, &QSslSocket::disconnected, this, &TCPClient::onDisconnected);
+    connect(socket_, QOverload<const QList<QSslError>&>::of(&QSslSocket::sslErrors), this, &TCPClient::onSslErrors);
+
+    socket_->setPeerVerifyMode(QSslSocket::VerifyNone);
+    socket_->setProtocol(QSsl::TlsV1_2OrLater);
+
+    socket_->connectToHostEncrypted(IPADRESS_dev, port_);
+
+    if (!socket_->waitForConnected(5000)) {
+        socket_->deleteLater();
+        socket_ = nullptr;
         return false;
     }
 
-    int flag = 1;
-    setsockopt(clientSocket, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int));
-
-    sockaddr_in serverAddr{};
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(port_);
-
-    if (inet_pton(AF_INET, IPADRESS_dev.toUtf8().constData(), &serverAddr.sin_addr) <= 0) {
+    if (!socket_->waitForEncrypted(5000)) {
+        socket_->deleteLater();
+        socket_ = nullptr;
         return false;
     }
-
-    if (::connect(clientSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == -1) {
-#ifdef _WIN32
-        closesocket(clientSocket);
-#else
-        close(clientSocket);
-#endif
-        clientSocket = -1;
-        return false;
-    }
-
-    ssl = SSL_new(g_ssl_ctx);
-    SSL_set_fd(ssl, clientSocket);
-
-    if(SSL_connect(ssl) <= 0) {
-        ERR_print_errors_fp(stderr);
-        return false;
-    }
-
-    handoverSocket();
 
     return true;
 }
 
-void TCPClient::handoverSocket() {
-    router_->setSSL(ssl);
+void TCPClient::onEncrypted() {
+    bConnected.store(true);
+    router_->setSSL(socket_);
+
+    emit connected();
 }
 
-void TCPClient::runLoop() {
-    bConnected.store(true);
+void TCPClient::onReadyRead() {
+    QByteArray newData = socket_->readAll();
+    m_buffer.append(newData);
 
-    QMetaObject::invokeMethod(this, [this](){
-        emit connected();
-    });
+    while (auto packet = PacketIO_Client::extractPacket(m_buffer)) {
+        if (onMessage) {
+            onMessage(*packet);
+        }
+    }
+}
 
-    std::string msg;
-    while (PacketIO::recvPacket(ssl, msg))
-        onMessage(msg);
+void TCPClient::onDisconnected() {
+    bConnected.store(false);
 
-    QMetaObject::invokeMethod(this, [this](){
-        emit connectionLose();
-    });
+    router_->setSSL(nullptr);
+
+    socket_->deleteLater();
+    socket_ = nullptr;
+
+    emit connectionLose();
+}
+
+void TCPClient::onSslErrors(const QList<QSslError> &errors) {
+    for (const auto &error : errors) {
+        qWarning() << "  -" << error.errorString();
+    }
+    socket_->ignoreSslErrors();
 }
 
 void TCPClient::disconnect() {
-    if(!bConnected.load()) return;
-    if(ssl) {
-        SSL_shutdown(ssl);
-        SSL_free(ssl);
-        ssl = nullptr;
+    if (!bConnected.load() || !socket_) {
+        return;
     }
-    if (clientSocket != -1) {
-#ifdef _WIN32
-        closesocket(clientSocket);
-#else
-        close(clientSocket);
-#endif
+
+    router_->setSSL(nullptr);
+
+    socket_->disconnectFromHost();
+
+    if (socket_->state() != QAbstractSocket::UnconnectedState) {
+        socket_->waitForDisconnected(1000);
     }
-    if(work.joinable()) work.join();
+
+    socket_->deleteLater();
+    socket_ = nullptr;
+    bConnected.store(false);
+}
+
+bool TCPClient::isConnected() const {
+    bool result = bConnected.load() && socket_ && socket_->state() == QAbstractSocket::ConnectedState;
+    return result;
 }
