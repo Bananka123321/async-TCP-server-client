@@ -1,8 +1,11 @@
 #include "LoginViewModel.h"
+#include <QDebug>
 #include "Validator.h"
 
 LoginViewModel::LoginViewModel(MessageRouter* router, Handler* handler, AppController* appCtrl, QObject* parent)
-    : QObject(parent), router_(router), handler_(handler), appController_(appCtrl) {
+    : QObject(parent), router_(router), handler_(handler), appController_(appCtrl)
+
+{
     connect(handler_, &Handler::S_loginSuccess, this, [this]() {
         emit loginSuccess();
     });
