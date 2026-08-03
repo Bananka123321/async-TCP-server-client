@@ -8,7 +8,7 @@
 #include "Message.h"
 #include "Handler.h"
 #include "AppState.h"
-#include "MetaDialog.h"
+#include "MetaDialog_Client.h"
 
 class DialogManager : public QObject{
     Q_OBJECT
@@ -22,8 +22,8 @@ public:
     void setHistory(int64_t dialog_id, const std::vector<Message>& messages);
     const std::vector<Message>* getMessages(int64_t dialog_id) const;
     void prependHistory(int64_t dialog_id, const std::vector<Message>& messages);
-    void dialogsLoaded(const std::vector<MetaDialog>& dialogs);
-    std::vector<MetaDialog> getDialogs() const;
+    void dialogsLoaded(const std::vector<MetaDialog_Client>& dialogs);
+    std::vector<MetaDialog_Client> getDialogs() const;
 
 signals:
     void messagesUpdated(int64_t dialog_id);
@@ -36,7 +36,7 @@ private:
 
     struct DialogData {
         std::vector<Message> messages;
-        MetaDialog meta;
+        MetaDialog_Client meta;
     };
 
     std::unordered_map<int64_t, DialogData> data_;

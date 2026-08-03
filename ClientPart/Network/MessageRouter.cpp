@@ -1,10 +1,12 @@
 #include "MessageRouter.h"
+#include <QtEndian>
+#include <QDebug>
 
-MessageRouter::MessageRouter() {}
-\
-void MessageRouter::setSSL(SSL* ssl) {
+MessageRouter::MessageRouter() : socket_(nullptr) {}
+
+void MessageRouter::setSSL(QSslSocket* socket) {
     std::lock_guard<std::mutex> lock(mutex_);
-    ssl_ = ssl;
+    socket_ = socket;
 }
 
 void MessageRouter::setReconnecting(bool value) {
@@ -52,17 +54,40 @@ void MessageRouter::resumeConnectionRequest(const std::string& token) {
 }
 
 void MessageRouter::sendPacket(const std::string& msg, bool force) {
-    if(!force && isReconnecting_.load()) {
+    if (!force && isReconnecting_.load()) {
         return;
     }
 
     std::lock_guard<std::mutex> lock(mutex_);
-    if(!force && isReconnecting_.load()) {
+
+    if (!force && isReconnecting_.load()) {
         return;
     }
 
-    if(!ssl_) {
+    if (!socket_) {
         return;
     }
-    PacketIO::sendPacket(ssl_, msg);
+
+    if (socket_->state() != QAbstractSocket::ConnectedState) {
+        return;
+    }
+
+    QSslSocket* sslSocket = qobject_cast<QSslSocket*>(socket_);
+    if (sslSocket) {
+        if (!sslSocket->isEncrypted()) {
+            return;
+        }
+    }
+
+    try {
+        uint32_t len = qToBigEndian(static_cast<uint32_t>(msg.size()));
+        qint64 written1 = socket_->write(reinterpret_cast<const char*>(&len), sizeof(len));
+        qint64 written2 = socket_->write(msg.data(), msg.size());
+
+        if (written1 == -1 || written2 == -1) {
+            qWarning() << "[MessageRouter] Write failed:" << socket_->errorString();
+        }
+    } catch (const std::exception& e) {
+        qWarning() << "[MessageRouter] Exception during write:" << e.what();
+    }
 }

@@ -12,5 +12,5 @@ private:
     static std::atomic<bool> shutdown_requested_;
 
 private:
-    static void handleSignal(int s);
+    static void handleSignal();
 };

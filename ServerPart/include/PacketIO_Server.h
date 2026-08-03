@@ -14,7 +14,7 @@
 
 constexpr uint32_t MAX_PACKET_SIZE = 1024*1024;
 
-class PacketIO {
+class PacketIO_Server {
 public:
     static bool sendPacket(SSL* ssl, const std::string& data);
     static bool recvPacket(SSL* ssl, std::string& data);

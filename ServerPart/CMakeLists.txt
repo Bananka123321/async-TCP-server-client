@@ -1,6 +1,8 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.16)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+add_compile_options(-Wall -Wextra -Wshadow -Werror -Wno-unused-parameter)
 
 project(Server)
 
@@ -8,19 +10,19 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(SERVER_SOURCES
     src/main.cpp
-        src/TcpServer.cpp
+    src/TcpServer.cpp
     src/DB_UserManager.cpp
     src/ClientSession.cpp
     src/Handler.cpp
     src/SessionManager.cpp
-        src/MessageDispatcher.cpp
+    src/MessageDispatcher.cpp
     src/Config.cpp
     src/DB_MessageManager.cpp
     src/DB_DialogManager.cpp
     src/SignalHandler.cpp
+    src/PacketIO_Server.cpp
 
     ../common/Validator.cpp
-    ../common/PacketIO.cpp
 )
 
 find_package(PkgConfig REQUIRED)

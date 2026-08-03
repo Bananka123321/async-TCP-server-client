@@ -28,11 +28,11 @@ int ClientSession::getUserId() const {
 }
 
 bool ClientSession::send(const std::string& message) const {
-    return PacketIO::sendPacket(ssl_, message);
+    return PacketIO_Server::sendPacket(ssl_, message);
 }   
 
 bool ClientSession::receive(std::string& message) const {
-    return PacketIO::recvPacket(ssl_, message);
+    return PacketIO_Server::recvPacket(ssl_, message);
 }
 
 void ClientSession::setUser(const int new_id, const std::string& new_username) {
