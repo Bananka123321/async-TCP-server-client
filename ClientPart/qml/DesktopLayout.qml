@@ -10,14 +10,18 @@ Item {
             Layout.preferredWidth: 320
             Layout.fillHeight: true
 
-            onChatClicked: function(chatId) {
-                console.log("Выбран чат:", chatId)
+            onChatClicked: function (chatId, chatName) {
+                console.log("Выбран чат:", chatName);
+                chatView.currentChatId = chatId;
+                chatView.currentChatName = chatName;
             }
         }
 
         ChatView {
+            id: chatView
             Layout.fillWidth: true
             Layout.fillHeight: true
+            isMobile: false
         }
     }
 }
