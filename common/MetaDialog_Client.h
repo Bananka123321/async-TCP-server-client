@@ -2,7 +2,7 @@
 
 #include <string>
 
-struct MetaDialog{
+struct MetaDialog_Client{
     int64_t dialog_id;
     int peer_id;
     std::string username;

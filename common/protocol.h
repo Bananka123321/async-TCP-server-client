@@ -6,7 +6,7 @@
 #include <variant>
 
 #include "Message.h"
-#include "MetaDialog.h"
+#include "MetaDialog_Client.h"
 
 struct User {
         int user_id;
@@ -91,7 +91,7 @@ inline void from_json(const nlohmann::json& j, Message& m) {
 
 //======================== MetaDialog ======================================
 
-inline void to_json(nlohmann::json& j, const MetaDialog& md) {
+inline void to_json(nlohmann::json& j, const MetaDialog_Client& md) {
     j = {
         {"peer_id", md.peer_id},
         {"username", md.username},
@@ -100,7 +100,7 @@ inline void to_json(nlohmann::json& j, const MetaDialog& md) {
     };
 }
 
-inline void from_json(const nlohmann::json& j, MetaDialog& md) {
+inline void from_json(const nlohmann::json& j, MetaDialog_Client& md) {
     j.at("peer_id").get_to(md.peer_id);
     j.at("username").get_to(md.username);
     j.at("last_msg_preview").get_to(md.last_msg_preview);
@@ -232,7 +232,7 @@ inline std::string historyResponse(bool success, const int64_t dialog_id, const 
     return j.dump();
 }
 
-inline std::string getDialogsResponse(bool success, const std::vector<MetaDialog>& dialogs, const std::string& reason = "") {
+inline std::string getDialogsResponse(bool success, const std::vector<MetaDialog_Client>& dialogs, const std::string& reason = "") {
     nlohmann::json j;
     j["type"] = "getDialogsResponse";
     j["success"] = success;

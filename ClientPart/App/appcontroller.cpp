@@ -1,30 +1,8 @@
 #define NOMINMAX
 #include "appcontroller.h"
 
-AppController::AppController(MessageRouter* router, AppState* state, Handler* handler, TCPClient* client) : router_(router), state_(state),  handler_(handler), client_(client) {}
-
-void AppController::AttachUI(MainWindow* mainW, LoginWindow* loginW) {
-    connect(mainW, &MainWindow::sendMessageRequest, this, [this](const Message& msg) {
-        router_->sendMessage(msg);
-    });
-
-    connect(loginW, &LoginWindow::loginRequest, this, [this](const std::string& login, const std::string& password) {
-        router_->loginRequest(login, password);
-    });
-
-    connect(loginW, &LoginWindow::registerRequest, this, [this](const std::string& login, const std::string& password) {
-        router_->registerRequest(login, password);
-    });
-
-    connect(mainW, &MainWindow::searchUser, this, [this](const std::string& text){
-        router_->searchUser(text);
-    });
-
-    connect(mainW, &MainWindow::loadHistoryRequest, this, [this](const int64_t dialog_id, const int64_t last_msg_id){
-        router_->historyRequest(dialog_id, last_msg_id);
-    });
-
-    connect(this, &AppController::ping, router_, &MessageRouter::ping, Qt::QueuedConnection);
+AppController::AppController(MessageRouter* router, AppState* state, Handler* handler, TCPClient* client)
+    : router_(router), state_(state), handler_(handler), client_(client) {
 
     connect(handler_, &Handler::S_loginSuccess, this, [this](const std::string&, int, const std::string&){
         router_->setReconnecting(false);
@@ -37,9 +15,9 @@ void AppController::AttachUI(MainWindow* mainW, LoginWindow* loginW) {
     });
 
     connect(client_, &TCPClient::connected, this, [this](){
-        if(state_->getCurrentToken().empty())
-            return;
-        router_->resumeConnectionRequest(state_->getCurrentToken());
+        if(!state_->getCurrentToken().empty()) {
+            router_->resumeConnectionRequest(state_->getCurrentToken());
+        }
     });
 
     connect(handler_, &Handler::S_ConnectionSucess, this, [this](){
@@ -50,6 +28,30 @@ void AppController::AttachUI(MainWindow* mainW, LoginWindow* loginW) {
 
 AppController::~AppController() {
     stopPing();
+    if (reconnectTimer) {
+        reconnectTimer->stop();
+        reconnectTimer->deleteLater();
+    }
+}
+
+void AppController::loginRequest(const std::string& login, const std::string& password) {
+    router_->loginRequest(login, password);
+}
+
+void AppController::registerUser(const std::string& login, const std::string& password) {
+    router_->registerRequest(login, password);
+}
+
+void AppController::sendMessage(const Message& msg) {
+    router_->sendMessage(msg);
+}
+
+void AppController::searchUser(const std::string& text) {
+    router_->searchUser(text);
+}
+
+void AppController::loadHistory(int64_t dialog_id, int64_t last_msg_id) {
+    router_->historyRequest(dialog_id, last_msg_id);
 }
 
 void AppController::startPing() {

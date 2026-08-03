@@ -82,7 +82,7 @@ void Handler::onHistoryResponse(const bool success, const int64_t dialog_id, con
         onErrorMessage(reason);
 }
 
-void Handler::onGetDialogsResponse(const bool success, const std::vector<MetaDialog>& dialogs, const std::string& reason) {
+void Handler::onGetDialogsResponse(const bool success, const std::vector<MetaDialog_Client>& dialogs, const std::string& reason) {
     if(success)
         emit S_DialogsLoaded(dialogs);
     else

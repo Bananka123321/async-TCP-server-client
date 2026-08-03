@@ -1,0 +1,12 @@
+<RCC>
+    <qresource prefix="/">
+        <file>qml/Main.qml</file>
+        <file>qml/LoginScreen.qml</file>
+        <file>qml/RegisterScreen.qml</file>
+        <file>qml/DesktopLayout.qml</file>
+        <file>qml/MobileLayout.qml</file>
+        <file>qml/MobileLayout.qml</file>
+        <file>qml/ChatList.qml</file>
+        <file>qml/ChatView.qml</file>
+    </qresource>
+</RCC>

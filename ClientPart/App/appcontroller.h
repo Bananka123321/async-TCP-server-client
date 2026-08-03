@@ -2,11 +2,11 @@
 
 #include <QObject>
 #include <QTimer>
+#include <string>
 
 #include "MessageRouter.h"
 #include "AppState.h"
-#include "mainwindow.h"
-#include "loginwindow.h"
+#include "Handler.h"
 #include "tcp_client.h"
 
 static int64_t PING_TIME_MS = 30000;
@@ -19,7 +19,13 @@ public:
     AppController(MessageRouter* router, AppState* state, Handler* handler, TCPClient* client);
     ~AppController();
 
-    void AttachUI(MainWindow* mainW, LoginWindow* loginW);
+public slots:
+    void loginRequest(const std::string& login, const std::string& password);
+    void registerUser(const std::string& login, const std::string& password);
+    void sendMessage(const Message& msg);
+    void searchUser(const std::string& text);
+    void loadHistory(int64_t dialog_id, int64_t last_msg_id);
+
     void startPing();
     void stopPing();
     void startReconnect();
@@ -32,8 +38,8 @@ private:
     Handler* handler_;
     MessageRouter* router_;
     AppState* state_;
+
     QTimer* pingTimer = nullptr;
     QTimer* reconnectTimer = nullptr;
-
     int reconnectAttempts = 0;
 };

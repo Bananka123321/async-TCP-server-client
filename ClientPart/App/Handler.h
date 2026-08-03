@@ -5,7 +5,7 @@
 #include <unordered_map>
 
 #include "nlohmann/json.hpp"
-#include "MetaDialog.h"
+#include "MetaDialog_Client.h"
 #include "Message.h"
 #include "protocol.h"
 
@@ -26,7 +26,7 @@ private:
     void onSearchUserResponse(const std::vector<User>& users);
     void onErrorMessage(const std::string& text);
     void onHistoryResponse(const bool success, const int64_t dialog_id, const std::vector<Message>& messages, const std::string& reason);
-    void onGetDialogsResponse(const bool success, const std::vector<MetaDialog>& dialogs, const std::string& reason);
+    void onGetDialogsResponse(const bool success, const std::vector<MetaDialog_Client>& dialogs, const std::string& reason);
     void onResumeConnectionResponse(const bool success);
 
 signals:
@@ -41,7 +41,7 @@ signals:
     void S_UserSearch(const std::vector<User>& users);
 
     void S_HistoryLoaded(const int64_t dialog_id, const std::vector<Message>& messages);
-    void S_DialogsLoaded(const std::vector<MetaDialog>& dialogs);
+    void S_DialogsLoaded(const std::vector<MetaDialog_Client>& dialogs);
 
     void S_ConnectionSucess();
 
