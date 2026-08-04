@@ -12,8 +12,9 @@ bool DB_UserManager::bUsernameAvailable(const std::string& username) {
 }
 
 DB_UserManager::AuthResult DB_UserManager::registerUser(const std::string& username, const std::string& password) {
-    if (!bUsernameAvailable(username))
+    if (!bUsernameAvailable(username)) {
         return {.success = false, .user_id = -1, .error = "Username is already taken"};
+    }
 
     const std::string hashed = hashPassword(password);
     try {
@@ -73,7 +74,7 @@ std::vector<User> DB_UserManager::searchUsers(const std::string& query) {
         pqxx::work txn(conn_);
 
         for (const pqxx::result r = txn.exec("SELECT id, username FROM users WHERE username LIKE " + txn.quote(query + "%") + " LIMIT 20"); const auto& row : r)
-            result.push_back({.user_id = row["id"].as<int>(), .username = row["username"].c_str()});
+            result.push_back({.username = row["username"].c_str(), .user_id = row["id"].as<int>()});
 
         return result;
 

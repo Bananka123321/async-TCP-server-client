@@ -3,7 +3,14 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 Rectangle {
+    id: root
     color: "#18181B"
+
+    property int currentChatId: 0
+    property string currentChatName: "Выберите чат"
+    property bool isMobile: false
+
+    signal backRequested
 
     ColumnLayout {
         anchors.fill: parent
@@ -14,44 +21,131 @@ Rectangle {
             Layout.preferredHeight: 60
             color: "#27272A"
 
-            Text {
-                anchors.verticalCenter: parent.verticalCenter
-                color: "#F4F4F5"
-                font.bold: true
-                font.pixelSize: 18
-                text: "Текущий чат"
-                x: 16
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 16
+                anchors.rightMargin: 16
+                spacing: 12
+
+                Button {
+                    visible: root.isMobile
+                    text: "←"
+                    font.pixelSize: 20
+                    font.bold: true
+                    background: Rectangle {
+                        color: "transparent"
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#F4F4F5"
+                        font: parent.font
+                    }
+                    onClicked: root.backRequested()
+                    Layout.preferredWidth: 40
+                }
+
+                Text {
+                    text: root.currentChatName
+                    color: "#F4F4F5"
+                    font.bold: true
+                    font.pixelSize: 18
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                }
             }
         }
 
         Rectangle {
-            Layout.fillHeight: true
             Layout.fillWidth: true
+            Layout.fillHeight: true
             color: "#18181B"
 
-            Text {
-                anchors.centerIn: parent
-                color: "#71717A"
-                text: "Здесь будут сообщения"
+            ListView {
+                id: messagesView
+                anchors.fill: parent
+                anchors.margins: 16
+                spacing: 8
+                model: ListModel {
+                    id: msgModel
+                }
+                verticalLayoutDirection: ListView.BottomToTop
+
+                delegate: Rectangle {
+                    width: Math.min(messagesView.width * 0.7, implicitWidth + 32)
+                    height: msg.implicitHeight + 24
+                    radius: 12
+                    color: isMine ? "#3B82F6" : "#27272A"
+                    anchors.right: isMine ? parent.right : undefined
+
+                    Text {
+                        id: msg
+                        text: messageText
+                        color: "#F4F4F5"
+                        font.pixelSize: 15
+                        wrapMode: Text.Wrap
+                        anchors.fill: parent
+                        anchors.margins: 12
+                    }
+                }
             }
         }
 
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 60
+            Layout.preferredHeight: 70
             color: "#27272A"
 
-            TextField {
+            RowLayout {
                 anchors.fill: parent
                 anchors.margins: 10
-                color: "#F4F4F5"
-                placeholderText: "Написать сообщение..."
-                placeholderTextColor: "#71717A"
+                spacing: 10
 
-                background: Rectangle {
-                    border.color: "#3F3F46"
-                    color: "#18181B"
-                    radius: 8
+                TextField {
+                    id: messageInput
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    placeholderText: "Написать сообщение..."
+                    placeholderTextColor: "#71717A"
+                    color: "#F4F4F5"
+                    font.pixelSize: 15
+
+                    background: Rectangle {
+                        color: "#18181B"
+                        radius: 20
+                        border.color: messageInput.activeFocus ? "#3B82F6" : "#3F3F46"
+                        border.width: 1
+                    }
+
+                    Keys.onReturnPressed: sendButton.clicked()
+                }
+
+                Button {
+                    id: sendButton
+                    text: "➤"
+                    font.pixelSize: 20
+                    Layout.preferredWidth: 50
+                    Layout.preferredHeight: 50
+
+                    background: Rectangle {
+                        color: parent.pressed ? "#1D4ED8" : "#3B82F6"
+                        radius: 25
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#FFFFFF"
+                        font: parent.font
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    onClicked: {
+                        if (messageInput.text.trim() !== "") {
+                            msgModel.insert(0, {
+                                messageText: messageInput.text,
+                                isMine: true
+                            });
+                            messageInput.text = "";
+                        }
+                    }
                 }
             }
         }

@@ -4,7 +4,7 @@
 #include <QTimer>
 #include <string>
 
-#include "MessageRouter.h"
+#include "Router.h"
 #include "AppState.h"
 #include "Handler.h"
 #include "tcp_client.h"
@@ -16,7 +16,7 @@ class AppController : public QObject {
     Q_OBJECT
 
 public:
-    AppController(MessageRouter* router, AppState* state, Handler* handler, TCPClient* client);
+    AppController(Router* router, AppState* state, Handler* handler, TCPClient* client);
     ~AppController();
 
 public slots:
@@ -36,7 +36,7 @@ signals:
 private:
     TCPClient* client_;
     Handler* handler_;
-    MessageRouter* router_;
+    Router* router_;
     AppState* state_;
 
     QTimer* pingTimer = nullptr;

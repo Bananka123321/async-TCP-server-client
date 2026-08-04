@@ -1,7 +1,7 @@
 #define NOMINMAX
 #include "appcontroller.h"
 
-AppController::AppController(MessageRouter* router, AppState* state, Handler* handler, TCPClient* client)
+AppController::AppController(Router* router, AppState* state, Handler* handler, TCPClient* client)
     : router_(router), state_(state), handler_(handler), client_(client) {
 
     connect(handler_, &Handler::S_loginSuccess, this, [this](const std::string&, int, const std::string&){

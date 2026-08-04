@@ -1,59 +1,59 @@
-#include "MessageRouter.h"
+#include "Router.h"
 #include <QtEndian>
 #include <QDebug>
 
-MessageRouter::MessageRouter() : socket_(nullptr) {}
+Router::Router() : socket_(nullptr) {}
 
-void MessageRouter::setSSL(QSslSocket* socket) {
+void Router::setSSL(QSslSocket* socket) {
     std::lock_guard<std::mutex> lock(mutex_);
     socket_ = socket;
 }
 
-void MessageRouter::setReconnecting(bool value) {
+void Router::setReconnecting(bool value) {
     isReconnecting_.store(value);
 }
 
-void MessageRouter::loginRequest(const std::string& login, const std::string& password) {
+void Router::loginRequest(const std::string& login, const std::string& password) {
     std::string request = protocol::loginRequest(login, password);
     sendPacket(request);
 }
 
-void MessageRouter::registerRequest(const std::string& login, const std::string& password) {
+void Router::registerRequest(const std::string& login, const std::string& password) {
     std::string request = protocol::registerRequest(login, password);
     sendPacket(request);
 }
 
-void MessageRouter::sendMessage(const Message &msg) {
+void Router::sendMessage(const Message &msg) {
     std::string request = protocol::sendMessage(msg);
     sendPacket(request);
 }
 
-void MessageRouter::searchUser(const std::string& text) {
+void Router::searchUser(const std::string& text) {
     std::string request = protocol::searchUserRequest(text);
     sendPacket(request);
 }
 
-void MessageRouter::historyRequest(const int64_t dialog_id, const int64_t last_msg_id) {
+void Router::historyRequest(const int64_t dialog_id, const int64_t last_msg_id) {
     std::string request = protocol::historyRequest(dialog_id, last_msg_id, 200);
     sendPacket(request);
 }
 
-void MessageRouter::getDialogsRequest() {
+void Router::getDialogsRequest() {
     std::string request = protocol::getDialogsRequest();
     sendPacket(request);
 }
 
-void MessageRouter::ping() {
+void Router::ping() {
     std::string request = protocol::ping();
     sendPacket(request);
 }
 
-void MessageRouter::resumeConnectionRequest(const std::string& token) {
+void Router::resumeConnectionRequest(const std::string& token) {
     std::string request = protocol::resumeConnectionRequest(token);
     sendPacket(request, true);
 }
 
-void MessageRouter::sendPacket(const std::string& msg, bool force) {
+void Router::sendPacket(const std::string& msg, bool force) {
     if (!force && isReconnecting_.load()) {
         return;
     }

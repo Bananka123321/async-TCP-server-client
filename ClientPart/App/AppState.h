@@ -4,16 +4,10 @@
 #include <QObject>
 #include <unordered_map>
 
+#include "User.h"
+
 class AppState : public QObject {
     Q_OBJECT
-
-private:
-    struct User {
-        std::string username;
-        int user_id;
-        std::string token;
-    };
-
 public:
     AppState();
 
@@ -38,4 +32,5 @@ signals:
 
 private:
     std::unordered_map<int, std::string> users;
+    std::string token_;
 };

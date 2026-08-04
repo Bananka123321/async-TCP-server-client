@@ -2,7 +2,7 @@
 #include <QDebug>
 #include "Validator.h"
 
-LoginViewModel::LoginViewModel(MessageRouter* router, Handler* handler, AppController* appCtrl, QObject* parent)
+LoginViewModel::LoginViewModel(Router* router, Handler* handler, AppController* appCtrl, QObject* parent)
     : QObject(parent), router_(router), handler_(handler), appController_(appCtrl)
 
 {

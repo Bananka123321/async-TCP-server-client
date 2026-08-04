@@ -36,9 +36,9 @@ const std::string AppState::getUsername(const int id) const {
 }
 
 const std::string AppState::getCurrentToken() const {
-    return user.token;
+    return token_;
 }
 
 void AppState::setCurrentToken(const std::string& token) {
-    user.token = token;
+    token_ = token;
 }

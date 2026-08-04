@@ -7,20 +7,17 @@
 
 #include "Message.h"
 #include "MetaDialog_Client.h"
+#include "User.h"
 
-struct User {
-        int user_id;
-        std::string username;
-    };
 
 //======================== USER ======================================
 
 inline void to_json(nlohmann::json& j, const User& u) {
-        j = {
-            {"user_id", u.user_id},
-            {"username", u.username}
-        };
-    }
+    j = {
+        {"user_id", u.user_id},
+        {"username", u.username}
+    };
+}
     
 inline void from_json(const nlohmann::json& j, User& u) {
     j.at("user_id").get_to(u.user_id);
