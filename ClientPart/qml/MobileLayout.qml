@@ -43,7 +43,7 @@ Item {
 
             onUserSelected: function (userId, username) {
                 if (appController) {
-                    appController.getOrCreateDialog(userId);
+                    appController.loadDialog(userId);
                 }
             }
         }

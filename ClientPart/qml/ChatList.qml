@@ -213,9 +213,9 @@ Rectangle {
                 clip: true
 
                 delegate: Rectangle {
-                    width: parent.width
+                    width: ListView.view.width
                     height: 60
-                    color: mouseArea.containsMouse ? "#2C2C30" : "transparent"
+                    color: mouseArea.containsMouse ? "#2C2C30" : "#202023"
 
                     RowLayout {
                         anchors.fill: parent
@@ -246,11 +246,14 @@ Rectangle {
                     }
 
                     MouseArea {
+                        id: mouseArea
                         anchors.fill: parent
                         hoverEnabled: true
                         onClicked: {
                             root.isSearching = false;
                             searchField.text = "";
+                            if (searchViewModel)
+                                searchViewModel.searchUser("");
                             root.userSelected(modelData.id, modelData.username);
                         }
                     }

@@ -12,8 +12,9 @@ bool DB_UserManager::bUsernameAvailable(const std::string& username) {
 }
 
 DB_UserManager::AuthResult DB_UserManager::registerUser(const std::string& username, const std::string& password) {
-    if (!bUsernameAvailable(username))
+    if (!bUsernameAvailable(username)) {
         return {.success = false, .user_id = -1, .error = "Username is already taken"};
+    }
 
     const std::string hashed = hashPassword(password);
     try {
