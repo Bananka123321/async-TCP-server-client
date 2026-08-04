@@ -6,10 +6,9 @@ Rectangle {
     id: root
     color: "#18181B"
 
-    // Свойства, которые мы будем передавать из Layout'ов
     property int currentChatId: 0
     property string currentChatName: "Выберите чат"
-    property bool isMobile: false // Флаг, чтобы показать кнопку "Назад" только на телефоне
+    property bool isMobile: false
 
     signal backRequested
 
@@ -17,7 +16,6 @@ Rectangle {
         anchors.fill: parent
         spacing: 0
 
-        // === ШАПКА ===
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 60
@@ -29,7 +27,6 @@ Rectangle {
                 anchors.rightMargin: 16
                 spacing: 12
 
-                // Кнопка "Назад" (только для мобильных)
                 Button {
                     visible: root.isMobile
                     text: "←"
@@ -58,7 +55,6 @@ Rectangle {
             }
         }
 
-        // === ОБЛАСТЬ СООБЩЕНИЙ ===
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -71,18 +67,18 @@ Rectangle {
                 spacing: 8
                 model: ListModel {
                     id: msgModel
-                } // Пока пусто, позже подключим C++
-                verticalLayoutDirection: ListView.BottomToTop // Новые сообщения снизу
+                }
+                verticalLayoutDirection: ListView.BottomToTop
 
                 delegate: Rectangle {
                     width: Math.min(messagesView.width * 0.7, implicitWidth + 32)
-                    height: msgText.implicitHeight + 24
+                    height: msg.implicitHeight + 24
                     radius: 12
                     color: isMine ? "#3B82F6" : "#27272A"
                     anchors.right: isMine ? parent.right : undefined
 
                     Text {
-                        id: msgText
+                        id: msg
                         text: messageText
                         color: "#F4F4F5"
                         font.pixelSize: 15
@@ -94,7 +90,6 @@ Rectangle {
             }
         }
 
-        // === ПОЛЕ ВВОДА ===
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 70
@@ -149,7 +144,6 @@ Rectangle {
                                 isMine: true
                             });
                             messageInput.text = "";
-                            // TODO: Здесь будет вызов C++ для отправки
                         }
                     }
                 }

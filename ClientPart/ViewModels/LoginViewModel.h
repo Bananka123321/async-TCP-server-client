@@ -3,7 +3,7 @@
 #include <QString>
 
 #include "appcontroller.h"
-#include "MessageRouter.h"
+#include "Router.h"
 #include "Handler.h"
 
 class LoginViewModel : public QObject {
@@ -17,7 +17,7 @@ class LoginViewModel : public QObject {
     Q_PROPERTY(bool passwordsMatch READ passwordsMatch NOTIFY validationChanged)
 
 public:
-    explicit LoginViewModel(MessageRouter* router, Handler* handler, AppController* appCtrl, QObject* parent);
+    explicit LoginViewModel(Router* router, Handler* handler, AppController* appCtrl, QObject* parent);
 
     bool loginValid() const { return m_loginValid; }
     bool passwordValid() const { return m_passwordValid; }
@@ -42,7 +42,7 @@ public slots:
     void validateRegisterForm(const QString& login, const QString& password, const QString& passwordRepeat);
 
 private:
-    MessageRouter* router_;
+    Router* router_;
     Handler* handler_;
     AppController* appController_;
 

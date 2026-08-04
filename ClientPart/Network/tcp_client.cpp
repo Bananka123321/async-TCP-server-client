@@ -8,7 +8,7 @@ const QString IPADRESS_dev = "127.0.0.1";
 
 const QString IPADRESS_dep = "31.192.108.37";
 
-TCPClient::TCPClient(int port, MessageRouter* msgRouter) : port_(port), router_(msgRouter), socket_(nullptr), bConnected(false) {}
+TCPClient::TCPClient(int port, Router* msgRouter) : port_(port), router_(msgRouter), socket_(nullptr), bConnected(false) {}
 
 TCPClient::~TCPClient() {
     disconnect();

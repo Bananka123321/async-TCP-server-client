@@ -15,7 +15,7 @@ find_package(Qt6 REQUIRED COMPONENTS
 set(CLIENT_SOURCES
     main.cpp
     Network/tcp_client.cpp
-    Network/MessageRouter.cpp
+    Network/Router.cpp
     Network/PacketIO_Client.cpp
 
     App/AppState.cpp
@@ -25,13 +25,14 @@ set(CLIENT_SOURCES
     App/DialogManager.cpp
 
     ViewModels/LoginViewModel.cpp
+    ViewModels/SearchViewModel.cpp
 
     ../common/Validator.cpp
 )
 
 set(CLIENT_HEADERS
     Network/tcp_client.h
-    Network/MessageRouter.h
+    Network/Router.h
     Network/PacketIO_Client.h
 
     App/AppState.h
@@ -41,10 +42,12 @@ set(CLIENT_HEADERS
     App/DialogManager.h
 
     ViewModels/LoginViewModel.h
+    ViewModels/SearchViewModel.h
 
     ../common/Message.h
     ../common/protocol.h
     ../common/Validator.h
+    ../common/User.h
 )
 
 qt_add_executable(Client
@@ -69,6 +72,7 @@ qt_add_qml_module(Client
         qml/DesktopLayout.qml
         qml/MobileLayout.qml
     NO_PLUGIN
+    SOURCES
 )
 
 target_include_directories(Client PRIVATE

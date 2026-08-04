@@ -9,10 +9,10 @@
 #include "protocol.h"
 #include "PacketIO_Client.h"
 
-class MessageRouter : public QObject{
+class Router : public QObject{
     Q_OBJECT
 public:
-    MessageRouter();
+    Router();
 
     void loginRequest(const std::string& login, const std::string& password);
     void registerRequest(const std::string& login, const std::string& password);

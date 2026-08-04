@@ -73,7 +73,7 @@ std::vector<User> DB_UserManager::searchUsers(const std::string& query) {
         pqxx::work txn(conn_);
 
         for (const pqxx::result r = txn.exec("SELECT id, username FROM users WHERE username LIKE " + txn.quote(query + "%") + " LIMIT 20"); const auto& row : r)
-            result.push_back({.user_id = row["id"].as<int>(), .username = row["username"].c_str()});
+            result.push_back({.username = row["username"].c_str(), .user_id = row["id"].as<int>()});
 
         return result;
 

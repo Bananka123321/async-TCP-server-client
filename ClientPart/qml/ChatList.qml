@@ -7,45 +7,18 @@ Rectangle {
     color: "#202023"
 
     signal chatClicked(int chatId, string chatName)
+    signal userSelected(int userId, string username)
 
-    // Демо-модель (без id, используем только данные)
-    ListModel {
-        id: chatModel
-        ListElement {
-            chatId: 1
-            name: "Павел Дуров"
-            lastMsg: "Верни стену"
-            time: "12:00"
-        }
-        ListElement {
-            chatId: 2
-            name: "Илон Маск"
-            lastMsg: "To the Moon! 🚀"
-            time: "11:45"
-        }
-        ListElement {
-            chatId: 3
-            name: "Рабочий чат"
-            lastMsg: "Где отчет?"
-            time: "Вчера"
-        }
-        ListElement {
-            chatId: 4
-            name: "Мама"
-            lastMsg: "Купи хлеба"
-            time: "Вчера"
-        }
-    }
+    property bool isSearching: false
 
-    ListView {
+    ColumnLayout {
         anchors.fill: parent
-        model: chatModel
-        clip: true
+        spacing: 0
 
-        delegate: Rectangle {
-            width: parent.width
-            height: 70
-            color: mouseArea.containsMouse || mouseArea.pressed ? "#2C2C30" : "transparent"
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 60
+            color: "#27272A"
 
             RowLayout {
                 anchors.fill: parent
@@ -53,67 +26,251 @@ Rectangle {
                 anchors.rightMargin: 16
                 spacing: 12
 
-                // Аватарка
-                Rectangle {
-                    Layout.preferredWidth: 48
-                    Layout.preferredHeight: 48
-                    radius: 24
-                    color: "#3B82F6"
-                    Layout.alignment: Qt.AlignVCenter
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: name.toString().charAt(0)
-                        color: "#FFFFFF"
-                        font.bold: true
-                        font.pixelSize: 20
-                    }
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.alignment: Qt.AlignVCenter
-                    spacing: 4
-
-                    Text {
-                        text: name
-                        color: "#F4F4F5"
-                        font.bold: true
-                        font.pixelSize: 16
-                        Layout.fillWidth: true
-                        elide: Text.ElideRight
-                    }
-
-                    Text {
-                        text: lastMsg
-                        color: "#A1A1AA"
-                        font.pixelSize: 14
-                        Layout.fillWidth: true
-                        elide: Text.ElideRight
-                    }
-                }
-
                 Text {
-                    text: time
-                    color: "#71717A"
-                    font.pixelSize: 12
-                    Layout.alignment: Qt.AlignTop | Qt.AlignRight
+                    visible: !root.isSearching
+                    text: "Чаты"
+                    color: "#F4F4F5"
+                    font.bold: true
+                    font.pixelSize: 20
+                    Layout.fillWidth: true
+                }
+
+                Button {
+                    visible: !root.isSearching
+                    text: "🔍"
+                    font.pixelSize: 22
+                    background: Rectangle {
+                        color: "transparent"
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#A1A1AA"
+                        font: parent.font
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    onClicked: {
+                        root.isSearching = true;
+                        searchField.forceActiveFocus();
+                    }
+                }
+
+                TextField {
+                    id: searchField
+                    visible: root.isSearching
+                    Layout.fillWidth: true
+                    placeholderText: "Поиск..."
+                    placeholderTextColor: "#71717A"
+                    color: "#F4F4F5"
+                    font.pixelSize: 16
+
+                    background: Rectangle {
+                        color: "#18181B"
+                        radius: 8
+                    }
+
+                    onTextChanged: {
+                        searchTimer.restart();
+                    }
+
+                    Timer {
+                        id: searchTimer
+                        interval: 300
+                        onTriggered: {
+                            if (searchViewModel) {
+                                searchViewModel.searchUser(searchField.text);
+                            }
+                        }
+                    }
+                }
+
+                Button {
+                    visible: root.isSearching
+                    text: "✕"
+                    font.pixelSize: 24
+                    font.bold: true
+                    background: Rectangle {
+                        color: "transparent"
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#A1A1AA"
+                        font: parent.font
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    onClicked: {
+                        root.isSearching = false;
+                        searchField.text = "";
+                        if (searchViewModel)
+                            searchViewModel.searchUser("");
+                    }
                 }
             }
+        }
 
-            MouseArea {
-                id: mouseArea
-                anchors.fill: parent
-                hoverEnabled: true
-                onClicked: root.chatClicked(model.chatId, model.name)
+        ListView {
+            visible: !root.isSearching
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            model: chatModel
+            clip: true
+
+            delegate: Rectangle {
+                width: parent.width
+                height: 70
+                color: mouseArea.containsMouse || mouseArea.pressed ? "#2C2C30" : "transparent"
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 16
+                    anchors.rightMargin: 16
+                    spacing: 12
+
+                    Rectangle {
+                        Layout.preferredWidth: 48
+                        Layout.preferredHeight: 48
+                        radius: 24
+                        color: "#3B82F6"
+                        Layout.alignment: Qt.AlignVCenter
+                        Text {
+                            anchors.centerIn: parent
+                            text: model.name.toString().charAt(0)
+                            color: "#FFFFFF"
+                            font.bold: true
+                            font.pixelSize: 20
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignVCenter
+                        spacing: 4
+                        Text {
+                            text: model.name
+                            color: "#F4F4F5"
+                            font.bold: true
+                            font.pixelSize: 16
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
+                        }
+                        Text {
+                            text: model.lastMsg
+                            color: "#A1A1AA"
+                            font.pixelSize: 14
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
+                        }
+                    }
+
+                    Text {
+                        text: model.time
+                        color: "#71717A"
+                        font.pixelSize: 12
+                        Layout.alignment: Qt.AlignTop | Qt.AlignRight
+                    }
+                }
+
+                MouseArea {
+                    id: mouseArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: root.chatClicked(model.chatId, model.name)
+                }
+
+                Rectangle {
+                    anchors.bottom: parent.bottom
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    height: 1
+                    color: "#2C2C30"
+                }
             }
+        }
+
+        Rectangle {
+            visible: root.isSearching
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            color: "#202023"
 
             Rectangle {
-                anchors.bottom: parent.bottom
-                anchors.left: parent.left
-                anchors.right: parent.right
-                height: 1
-                color: "#2C2C30"
+                visible: searchViewModel ? searchViewModel.isSearching : false
+                anchors.fill: parent
+                color: "#202023"
+                Text {
+                    anchors.centerIn: parent
+                    text: "Поиск..."
+                    color: "#A1A1AA"
+                    font.pixelSize: 14
+                }
+            }
+
+            ListView {
+                visible: !(searchViewModel ? searchViewModel.isSearching : false) && (searchViewModel ? searchViewModel.users.length > 0 : false)
+                anchors.fill: parent
+                model: searchViewModel ? searchViewModel.users : []
+                clip: true
+
+                delegate: Rectangle {
+                    width: parent.width
+                    height: 60
+                    color: mouseArea.containsMouse ? "#2C2C30" : "transparent"
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 16
+                        anchors.rightMargin: 16
+                        spacing: 12
+
+                        Rectangle {
+                            Layout.preferredWidth: 40
+                            Layout.preferredHeight: 40
+                            radius: 20
+                            color: "#10B981"
+                            Text {
+                                anchors.centerIn: parent
+                                text: modelData.username ? modelData.username.charAt(0).toUpperCase() : "?"
+                                color: "#FFFFFF"
+                                font.bold: true
+                                font.pixelSize: 18
+                            }
+                        }
+
+                        Text {
+                            text: modelData.username ? modelData.username : "Unknown"
+                            color: "#F4F4F5"
+                            font.pixelSize: 16
+                            Layout.fillWidth: true
+                        }
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: {
+                            root.isSearching = false;
+                            searchField.text = "";
+                            root.userSelected(modelData.id, modelData.username);
+                        }
+                    }
+
+                    Rectangle {
+                        anchors.bottom: parent.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        height: 1
+                        color: "#2C2C30"
+                    }
+                }
+            }
+
+            Text {
+                visible: !(searchViewModel ? searchViewModel.isSearching : false) && (searchField.text.length > 0) && !(searchViewModel ? searchViewModel.users.length > 0 : false)
+                anchors.centerIn: parent
+                text: "Пользователи не найдены"
+                color: "#71717A"
+                font.pixelSize: 14
             }
         }
     }

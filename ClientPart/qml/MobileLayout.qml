@@ -26,12 +26,25 @@ Item {
 
         initialItem: ChatList {
             onChatClicked: function (chatId, chatName) {
-                console.log("Открываем чат:", chatName);
-                mobileStack.push(chatViewComponent, {
-                    currentChatId: chatId,
-                    currentChatName: chatName,
-                    isMobile: true
-                });
+                if (mobileStack.depth === 1) {
+                    mobileStack.push(chatViewComponent, {
+                        currentChatId: chatId,
+                        currentChatName: chatName,
+                        isMobile: true
+                    });
+                } else {
+                    mobileStack.replace(chatViewComponent, {
+                        currentChatId: chatId,
+                        currentChatName: chatName,
+                        isMobile: true
+                    });
+                }
+            }
+
+            onUserSelected: function (userId, username) {
+                if (appController) {
+                    appController.getOrCreateDialog(userId);
+                }
             }
         }
     }

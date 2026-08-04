@@ -8,5 +8,6 @@
         <file>qml/MobileLayout.qml</file>
         <file>qml/ChatList.qml</file>
         <file>qml/ChatView.qml</file>
+        <file>qml/SearchPanel.qml</file>
     </qresource>
 </RCC>

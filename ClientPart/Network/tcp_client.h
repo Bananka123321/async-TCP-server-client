@@ -7,14 +7,14 @@
 #include <atomic>
 #include <functional>
 
-#include "MessageRouter.h"
+#include "Router.h"
 #include "PacketIO_Client.h"
 
 class TCPClient : public QObject {
     Q_OBJECT
 
 public:
-    TCPClient(int port, MessageRouter* msgRouter);
+    TCPClient(int port, Router* msgRouter);
     ~TCPClient();
 
     bool start();
@@ -36,7 +36,7 @@ private slots:
 private:
     int port_;
     QSslSocket* socket_ = nullptr;
-    MessageRouter* router_;
+    Router* router_;
 
     QByteArray m_buffer;
     std::atomic<bool> bConnected{false};

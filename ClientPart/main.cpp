@@ -4,19 +4,20 @@
 #include <QMetaObject>
 #include <memory>
 
-#include "MessageRouter.h"
+#include "Router.h"
 #include "tcp_client.h"
 #include "Handler.h"
 #include "appcontroller.h"
 #include "StateBinder.h"
 #include "DialogManager.h"
-#include "ViewModels/LoginViewModel.h"
+#include "LoginViewModel.h"
+#include "SearchViewModel.h"
 
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
 
     auto state = std::make_unique<AppState>();
-    auto router = std::make_unique<MessageRouter>();
+    auto router = std::make_unique<Router>();
     auto handler = std::make_unique<Handler>();
     auto client = std::make_unique<TCPClient>(6767, router.get());
     auto appController = std::make_unique<AppController>(router.get(), state.get(), handler.get(), client.get());
@@ -34,10 +35,13 @@ int main(int argc, char *argv[]) {
     }
 
     auto loginVM = std::make_unique<LoginViewModel>(router.get(), handler.get(), appController.get(), &app);
+    auto searchVM = std::make_unique<SearchViewModel>(router.get());
+    QObject::connect(handler.get(), &Handler::S_UserSearch, searchVM.get(), &SearchViewModel::onUserSearchResults);
 
     QQmlApplicationEngine engine;
-    engine.rootContext()->setContextProperty("loginViewModel", loginVM.get());
     engine.rootContext()->setContextProperty("appController", appController.get());
+    engine.rootContext()->setContextProperty("loginViewModel", loginVM.get());
+    engine.rootContext()->setContextProperty("searchViewModel", searchVM.get());
 
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
 
