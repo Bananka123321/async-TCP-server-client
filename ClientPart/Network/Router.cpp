@@ -53,6 +53,11 @@ void Router::resumeConnectionRequest(const std::string& token) {
     sendPacket(request, true);
 }
 
+void Router::resumeSessionRequest(const std::string& token) {
+    std::string request = protocol::resumeSessionRequest(token);
+    sendPacket(request, true);
+}
+
 void Router::sendPacket(const std::string& msg, bool force) {
     if (!force && isReconnecting_.load()) {
         return;

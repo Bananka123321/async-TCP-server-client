@@ -15,12 +15,12 @@ AppController::AppController(Router* router, AppState* state, Handler* handler, 
     });
 
     connect(client_, &TCPClient::connected, this, [this](){
-        if(!state_->getCurrentToken().empty()) {
-            router_->resumeConnectionRequest(state_->getCurrentToken());
+        if(!state_->getConnectionToken().empty()) {
+            router_->resumeConnectionRequest(state_->getConnectionToken());
         }
     });
 
-    connect(handler_, &Handler::S_ConnectionSucess, this, [this](){
+    connect(handler_, &Handler::S_ResumeConnectionSucess, this, [this](){
         router_->setReconnecting(false);
         startPing();
     });

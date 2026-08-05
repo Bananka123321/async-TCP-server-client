@@ -20,20 +20,21 @@ private:
 
     std::unordered_map<std::string, std::function<void(const nlohmann::json&)>> handlers_;
 
-    void onLoginResponse(const bool success, const int user_id, const std::string& login, const std::string& token, const std::string& reason);
-    void onRegisterResponse(const bool success, const int user_id, const std::string& login, const std::string& token, const std::string& reason);
+    void onLoginResponse(const bool success, const int user_id, const std::string& login, const std::string& connectionToken, const std::string& sessionToken, const std::string& reason);
+    void onRegisterResponse(const bool success, const int user_id, const std::string& login, const std::string& connectionToken, const std::string& sessionToken, const std::string& reason);
     void onSendMessage(const Message& msg);
     void onSearchUserResponse(const std::vector<User>& users);
     void onErrorMessage(const std::string& text);
     void onHistoryResponse(const bool success, const int64_t dialog_id, const std::vector<Message>& messages, const std::string& reason);
     void onGetDialogsResponse(const bool success, const std::vector<MetaDialog_Client>& dialogs, const std::string& reason);
     void onResumeConnectionResponse(const bool success);
+    void onResumeSessionResponse(const bool success, const std::string& token);
 
 signals:
-    void S_loginSuccess(const std::string& login, const int user_id, const std::string& token);
+    void S_loginSuccess(const std::string& login, const int user_id, const std::string& connectionToken, const std::string& sessionToken);
     void S_loginFailed(const std::string& reason);
 
-    void S_registerSuccess(const std::string& login, const int user_id, const std::string& token);
+    void S_registerSuccess(const std::string& login, const int user_id, const std::string& connectionToken, const std::string& sessionToken);
     void S_registerFailed(const std::string& reason);
 
     void S_Message(const Message& msg);
@@ -43,6 +44,8 @@ signals:
     void S_HistoryLoaded(const int64_t dialog_id, const std::vector<Message>& messages);
     void S_DialogsLoaded(const std::vector<MetaDialog_Client>& dialogs);
 
-    void S_ConnectionSucess();
+    void S_ResumeConnectionSucess();
+    void S_ResumeSessionSucess(const std::string& token);
+    void S_ResumeSessionFailed();
 
 };

@@ -1,7 +1,7 @@
 #include "../include/TcpServer.h"
 #include <openssl/err.h>
 
-TcpServer::TcpServer(const int port) : port_(port), serverSocket_(-1), sessionManager_(),
+TcpServer::TcpServer(const int port) : port_(port), serverSocket_(-1), ssl_ctx_(nullptr), sessionManager_(),
 handler_(sessionManager_), temporaryTokenManager_(Config::getDB().getConnectionStr()) {
     handler_.setDisconnectHandler([this](const std::shared_ptr<ClientSession> &client) {
         clientDisconnect(client);
@@ -10,26 +10,26 @@ handler_(sessionManager_), temporaryTokenManager_(Config::getDB().getConnectionS
     SSL_load_error_strings();
     OpenSSL_add_ssl_algorithms();
 
-    g_ssl_ctx = SSL_CTX_new(TLS_server_method());
-    if (!g_ssl_ctx) {
+    ssl_ctx_ = SSL_CTX_new(TLS_server_method());
+    if (!ssl_ctx_) {
         std::cerr << "Failed to create SSL context\n";
         ERR_print_errors_fp(stderr);
         return;
     }
 
-    if (SSL_CTX_use_certificate_file(g_ssl_ctx, "server.crt", SSL_FILETYPE_PEM) <= 0) {
+    if (SSL_CTX_use_certificate_file(ssl_ctx_, "server.crt", SSL_FILETYPE_PEM) <= 0) {
         std::cerr << "Failed to load certificate\n";
         ERR_print_errors_fp(stderr);
         return;
     }
     
-    if (SSL_CTX_use_PrivateKey_file(g_ssl_ctx, "server.key", SSL_FILETYPE_PEM) <= 0) {
+    if (SSL_CTX_use_PrivateKey_file(ssl_ctx_, "server.key", SSL_FILETYPE_PEM) <= 0) {
         std::cerr << "Failed to load private key\n";
         ERR_print_errors_fp(stderr);
         return;
     }
 
-    if (!SSL_CTX_check_private_key(g_ssl_ctx)) {
+    if (!SSL_CTX_check_private_key(ssl_ctx_)) {
         std::cerr << "Failed to check private key\n";
         ERR_print_errors_fp(stderr);
         return;
@@ -54,9 +54,9 @@ void TcpServer::stop() {
     if(serverRunning_.load()) serverRunning_.store(false);
     if(monitor_thread_.joinable()) monitor_thread_.join();
     
-    if(g_ssl_ctx) {
-        SSL_CTX_free(g_ssl_ctx);
-        g_ssl_ctx = nullptr;
+    if(ssl_ctx_) {
+        SSL_CTX_free(ssl_ctx_);
+        ssl_ctx_ = nullptr;
     }
 
     EVP_cleanup();
@@ -107,7 +107,7 @@ void TcpServer::run() {
         int clientSocket = accept(serverSocket_, reinterpret_cast<sockaddr *>(&clientAddr), (socklen_t*)&addrLen);
         if (clientSocket == -1) continue;
 
-        SSL* ssl = SSL_new(g_ssl_ctx);
+        SSL* ssl = SSL_new(ssl_ctx_);
         SSL_set_fd(ssl, clientSocket);
 
         if (SSL_accept(ssl) <= 0) {

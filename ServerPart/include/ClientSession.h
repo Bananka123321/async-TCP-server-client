@@ -9,7 +9,7 @@
 
 class ClientSession {
 public:
-    ClientSession(int sock, SSL* ssl_);
+    ClientSession(int sock, SSL* ssl);
     ~ClientSession();
 
     ClientSession(const ClientSession&) = delete;

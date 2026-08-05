@@ -9,9 +9,6 @@
 #include "SessionManager.h"
 #include "DB_TemporaryTokenManager.h"
 
-static SSL_CTX* g_ssl_ctx = nullptr;
-static int64_t HEARTBEAT_INTERVAL_MS = 30000;
-static int64_t SESSION_TIMEOUT_MS = 90000;
 
 class TcpServer {
 public:
@@ -24,6 +21,7 @@ public:
 private:
     int port_;
     int serverSocket_;
+    SSL_CTX* ssl_ctx_;
 
     std::atomic<bool> serverRunning_{false};
     std::atomic<bool> monitorRunning_{false};
@@ -33,6 +31,9 @@ private:
     SessionManager sessionManager_;
     Handler handler_;
     DB_TemporaryTokenManager temporaryTokenManager_;
+
+    static constexpr int64_t HEARTBEAT_INTERVAL_MS = 30000;
+    static constexpr int64_t SESSION_TIMEOUT_MS = 90000;
 
     friend class MessageDispatcher;
 

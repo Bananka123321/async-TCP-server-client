@@ -2,11 +2,11 @@
 
 Handler::Handler() {
     handlers_["loginResponse"] = [this] (const nlohmann::json& j) {
-        onLoginResponse(j["success"], j["user_id"], j["username"], j["token"], j["error"]);
+        onLoginResponse(j["success"], j["user_id"], j["username"], j["connectToken"], j["sessionToken"], j["error"]);
     };
 
     handlers_["registerResponse"] = [this] (const nlohmann::json& j) {
-        onRegisterResponse(j["success"], j["user_id"], j["username"], j["token"], j["error"]);
+        onRegisterResponse(j["success"], j["user_id"], j["username"], j["connectToken"], j["sessionToken"], j["error"]);
     };
 
     handlers_["sendMessage"] = [this] (const nlohmann::json& j) {
@@ -32,6 +32,10 @@ Handler::Handler() {
     handlers_["resumeConnectionResponse"] = [this] (const nlohmann::json& j) {
         onResumeConnectionResponse(j["success"]);
     };
+
+    handlers_["resumeSessionResponse"] = [this] (const nlohmann::json& j) {
+        onResumeSessionResponse(j["success"], j["token"]);
+    };
 }
 
 void Handler::handleMessage(std::string_view msg) {
@@ -49,18 +53,20 @@ void Handler::handleMessage(std::string_view msg) {
 
 //=============================================================================================
 
-void Handler::onLoginResponse(const bool success, const int user_id, const std::string& login, const std::string& token, const std::string& reason) {
+void Handler::onLoginResponse(const bool success, const int user_id, const std::string& login, const std::string& connectionToken, const std::string& sessionToken, const std::string& reason) {
     if (success) {
-        emit S_loginSuccess(login, user_id, token);
-    } else
+        emit S_loginSuccess(login, user_id, connectionToken, sessionToken);
+    } else {
         emit S_loginFailed(reason);
+    }
 }
 
-void Handler::onRegisterResponse(const bool success, const int user_id, const std::string& login, const std::string& token, const std::string& reason) {
+void Handler::onRegisterResponse(const bool success, const int user_id, const std::string& login, const std::string& connectionToken, const std::string& sessionToken, const std::string& reason) {
     if (success) {
-        emit S_registerSuccess(login, user_id, token);
-    } else
+        emit S_registerSuccess(login, user_id, connectionToken, sessionToken);
+    } else {
         emit S_registerFailed(reason);
+    }
 }
 
 void Handler::onSendMessage(const Message& msg) {
@@ -76,20 +82,31 @@ void Handler::onErrorMessage(const std::string& text) {
 }
 
 void Handler::onHistoryResponse(const bool success, const int64_t dialog_id, const std::vector<Message>& messages, const std::string& reason) {
-    if(success)
+    if(success) {
         emit S_HistoryLoaded(dialog_id, messages);
-    else
+    } else {
         onErrorMessage(reason);
+    }
 }
 
 void Handler::onGetDialogsResponse(const bool success, const std::vector<MetaDialog_Client>& dialogs, const std::string& reason) {
-    if(success)
+    if(success) {
         emit S_DialogsLoaded(dialogs);
-    else
+    } else {
         onErrorMessage(reason);
+    }
 }
 
 void Handler::onResumeConnectionResponse(const bool success) {
-    if(success)
-        emit S_ConnectionSucess();
+    if(success) {
+        emit S_ResumeConnectionSucess();
+    }
+}
+
+void Handler::onResumeSessionResponse(const bool success, const std::string& token) {
+    if(success) {
+        emit S_ResumeSessionSucess(token);
+    } else {
+        emit S_ResumeSessionFailed();
+    }
 }

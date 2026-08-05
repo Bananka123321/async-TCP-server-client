@@ -20,10 +20,13 @@ public:
     const int getCurrentUserId() const;
     void setCurrentUserId(const int user_id);
 
-    const std::string getCurrentToken() const;
-    void setCurrentToken(const std::string& token);
+    const std::string getSessionToken() const;
+    void setSessionToken(const std::string& token);
 
-    const std::string getUsername(const int id) const;
+    const std::string getConnectionToken() const;
+    void setConnectionToken(const std::string& token);
+
+    const std::string getUsernameByUserId(const int id) const;
 
     User user;
 
@@ -32,5 +35,6 @@ signals:
 
 private:
     std::unordered_map<int, std::string> users;
-    std::string token_;
+    std::string connectionToken_;
+    std::string sessionToken_;
 };
