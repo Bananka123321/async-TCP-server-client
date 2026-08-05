@@ -92,7 +92,7 @@ void Handler::loginRequest(const std::shared_ptr<ClientSession>& client, const n
         return;
     }
 
-    const auto sessionToken = devicesSessionManager_.createToken(user_id, j["device_info"], j["ip_address"]);
+    const auto sessionToken = devicesSessionManager_.createToken(user_id, "", "");
     const auto connectToken = authSuccess(client, user_id, j["username"]);
 
     if (!sessionToken.has_value()) {
@@ -114,7 +114,7 @@ void Handler::registerRequest(const std::shared_ptr<ClientSession>& client, cons
         return;
     }
 
-    const auto sessionToken = devicesSessionManager_.createToken(user_id, j["device_info"], j["ip_address"]);
+    const auto sessionToken = devicesSessionManager_.createToken(user_id, "", "");
     const auto connectToken = authSuccess(client, user_id, j["username"]);
 
     if (!sessionToken.has_value()) {

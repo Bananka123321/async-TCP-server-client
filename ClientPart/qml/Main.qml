@@ -61,26 +61,34 @@ ApplicationWindow {
     }
 
     function loadMainLayout() {
+        console.log("[MAIN] loadMainLayout() called");
         isCheckingSession = false;
         shouldShowLogin = false;
         authStackView.clear();
         authStackView.push(mainLayoutComponent);
+        console.log("[MAIN] Main layout pushed");
     }
 
     function showLogin() {
+        console.log("[MAIN] showLogin() called");
         isCheckingSession = false;
         shouldShowLogin = true;
         authStackView.clear();
         authStackView.push(loginScreenComponent);
+        console.log("[MAIN] Login screen pushed");
     }
 
     Component.onCompleted: {
+        console.log("[MAIN] Component.onCompleted - appController:", appController);
+        console.log("[MAIN] Calling checkAndResumeSession()");
         appController.checkAndResumeSession();
+        console.log("[MAIN] checkAndResumeSession() finished");
     }
 
     Connections {
         target: appController
-        function onResumeSession(success) {
+        function onResumeSessionFinished(success) {
+            console.log("[MAIN] onResumeSessionFinished called with success:", success);
             isCheckingSession = false;
             if (success) {
                 loadMainLayout();

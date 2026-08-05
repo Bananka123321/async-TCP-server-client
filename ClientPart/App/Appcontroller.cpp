@@ -29,7 +29,7 @@ AppController::AppController(Router* router, AppState* state, Handler* handler, 
         if (success) {
             state_->setConnectionToken(token);
         }
-        emit onResumeSession(success);
+        emit resumeSessionFinished(success);
     });
 }
 
@@ -65,7 +65,7 @@ void AppController::checkAndResumeSession() {
     if (state_->hasSession()) {
         router_->resumeSessionRequest(state_->getSessionToken().toStdString());
     } else {
-        emit onResumeSession(false);
+        emit resumeSessionFinished(false);
     }
 }
 

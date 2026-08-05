@@ -32,7 +32,7 @@ public slots:
 signals:
     void ping();
 
-    void onResumeSession(bool success);
+    void resumeSessionFinished(bool success);
 
 private:
     TCPClient* client_;
