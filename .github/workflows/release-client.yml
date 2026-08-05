@@ -11,62 +11,71 @@ permissions:
 
 jobs:
   build:
-    name: Build (${{ matrix.os }})
+    name: Build (${{ matrix.os }} - ${{ matrix.qt_arch }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: windows-latest
-            qt_version: '6.5.3'
-            qt_arch: 'win64_msvc2019_64'
+            qt_version: '6.11.1'
+            qt_arch: 'win64_msvc2022_64'
             artifact_name: ChatClient_Windows
-            binary_name: Client.exe
-            suffix: .zip
+            suffix: .zipssssssssssssss
+            cmake_args: -G Ninja
 
           - os: ubuntu-22.04
-            qt_version: '6.5.3'
+            qt_version: '6.11.1'
             qt_arch: 'gcc_64'
             artifact_name: ChatClient_Linux
-            binary_name: Client
             suffix: .tar.gz
+            cmake_args: -G Ninja
+
+          - os: ubuntu-22.04
+            qt_version: '6.11.1'
+            qt_arch: 'android_arm64_v8a'
+            artifact_name: ChatClient_Android_ARM64
+            suffix: .apk
+            cmake_args: -G Ninja -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install Qt
-        uses: jurplel/install-qt-action@v3
+        uses: jurplel/install-qt-action@v4
         with:
           version: ${{ matrix.qt_version }}
           arch: ${{ matrix.qt_arch }}
           cache: true
 
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
+      - name: Install Linux Desktop Dependencies
+        if: runner.os == 'Linux' && matrix.qt_arch == 'gcc_64'
         run: |
           sudo apt update
-          sudo apt install -y build-essential libgl1-mesa-dev libxkbcommon-x11-0 \
+          sudo apt install -y ninja-build libgl1-mesa-dev libxkbcommon-x11-0 \
             libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
             libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
-            libssl-dev
+            libssl-dev patchelf
           
-          # Установка linuxdeployqt
-          wget -c -nv "https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage"
-          chmod a+x linuxdeployqt-continuous-x86_64.AppImage
-          sudo mv linuxdeployqt-continuous-x86_64.AppImage /usr/local/bin/linuxdeployqt
+         wget -c -nv "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
+          wget -c -nv "https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage"
+          chmod a+x linuxdeploy-*.AppImage
+          sudo mv linuxdeploy-*.AppImage /usr/local/bin/
 
       - name: Configure CMake
         shell: bash
         run: |
           cmake -S ClientPart -B ClientPart/build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DOPENSSL_ROOT_DIR="${OPENSSL_ROOT_DIR}"
+            ${{ matrix.cmake_args }}
 
       - name: Build
+        shell: bash
         run: cmake --build ClientPart/build --config Release --parallel
 
-      # --- WINDOWS ---
       - name: Package Windows
         if: runner.os == 'Windows'
         shell: pwsh
@@ -74,47 +83,74 @@ jobs:
           $dist = "release_pkg"
           New-Item -ItemType Directory -Force -Path $dist
           
-          # Ищем Client.exe рекурсивно в папке build
           $exePath = Get-ChildItem -Path "ClientPart/build" -Filter "Client.exe" -Recurse | Select-Object -First 1 -ExpandProperty FullName
-          if (-not $exePath) { throw "Client.exe not found in build directory!" }
+          if (-not $exePath) { throw "Client.exe not found!" }
           
           Copy-Item $exePath "$dist/" -Force
-          if (Test-Path "config.json") { Copy-Item "config.json" "$dist/" }
-
+          
           windeployqt --release --no-translations --no-system-d3d-compiler "$dist/Client.exe"
-          Copy-Item "$env:OPENSSL_ROOT_DIR\bin\*.dll" "$dist/" -ErrorAction SilentlyContinue
+          
+          $opensslPath = "$env:OPENSSL_ROOT_DIR\bin"
+          if (Test-Path $opensslPath) {
+            Copy-Item "$opensslPath\libcrypto*.dll", "$opensslPath\libssl*.dll" "$dist/" -ErrorAction SilentlyContinue
+          }
 
-          Compress-Archive -Path "$dist/*" -DestinationPath "${{ matrix.artifact_name }}${{ matrix.suffix }}"
+          Compress-Archive -Path "$dist/*" -DestinationPath "${{ matrix.artifact_name }}${{ matrix.suffix }}" -Force
 
-      # --- LINUX ---
       - name: Package Linux
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.qt_arch == 'gcc_64'
         shell: bash
         run: |
           dist="release_pkg"
           mkdir -p "$dist"
           
-          # Ищем исполняемый файл Client в папке build
-          # -executable гарантирует, что мы не скопируем какой-нибудь мусор
           exe_path=$(find ClientPart/build -type f -name "Client" -executable | head -n 1)
           if [ -z "$exe_path" ]; then echo "Client binary not found!"; exit 1; fi
           
           cp "$exe_path" "$dist/"
-          [ -f config.json ] && cp config.json "$dist/"
           chmod +x "$dist/Client"
 
-          # Создаем run.sh
-          echo -e "#!/bin/bash\nDIR=\$(cd \"\$(dirname \"\$0\")\" && pwd)\nexport LD_LIBRARY_PATH=\"\$DIR/lib:\$LD_LIBRARY_PATH\"\nexec \"\$DIR/Client\"" > "$dist/run.sh"
-          chmod +x "$dist/run.sh"
+          export QML_SOURCES_PATHS="${GITHUB_WORKSPACE}/ClientPart/qml"
+          linuxdeploy-x86_64.AppImage --appdir AppDir \
+            --executable="$dist/Client" \
+            --plugin qt \
+            --output appimage || echo "AppImage creation failed, falling back to tar.gz"
+          
+          if [ ! -f "Client-x86_64.AppImage" ]; then
+            mkdir -p "$dist/lib"
+            cp "$exe_path" "$dist/"
+            tar -czf "${{ matrix.artifact_name }}${{ matrix.suffix }}" -C "$dist" .
+          else
+            mv Client-x86_64.AppImage "${{ matrix.artifact_name }}.AppImage"
+          fi
 
-          linuxdeployqt "$dist/Client" -appimage -unsupported-allow-new-glibc || true
-          tar -czf "${{ matrix.artifact_name }}${{ matrix.suffix }}" -C "$dist" .
+      - name: Package Android
+        if: matrix.qt_arch == 'android_arm64_v8a'
+        shell: bash
+        run: |
+          apk_path=$(find ClientPart/build -name "*.apk" -type f | grep -i release | head -n 1)
+          
+          if [ -z "$apk_path" ]; then
+            apk_path=$(find ClientPart/build -name "*.apk" -type f | head -n 1)
+          fi
+
+          if [ -z "$apk_path" ]; then
+            echo "APK not found! Listing build directory:"
+            find ClientPart/build -type f -name "*.apk"
+            exit 1
+          fi
+
+          echo "Found APK at: $apk_path"
+          cp "$apk_path" "${{ matrix.artifact_name }}${{ matrix.suffix }}"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: ${{ matrix.artifact_name }}${{ matrix.suffix }}
+          path: |
+            ${{ matrix.artifact_name }}${{ matrix.suffix }}
+            ${{ matrix.artifact_name }}.AppImage
+          if-no-files-found: error
 
   release:
     needs: build
@@ -133,7 +169,13 @@ jobs:
           files: all_artifacts/*
           tag_name: ${{ github.ref_name }}
           body: |
-            ### Release ${{ github.ref_name }}
+            ### 🚀 Release ${{ github.ref_name }}
+            
+            **Доступные сборки:**
+            - 🪟 Windows (x64)
+            - 🐧 Linux (x64 AppImage/tar.gz)
+            - 🤖 Android (ARM64 APK)
+            
             **Server:** `31.192.108.37:6767`
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
