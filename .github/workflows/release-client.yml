@@ -18,21 +18,21 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            qt_version: '6.7.2'
+            qt_version: '6.7.1'
             qt_arch: 'win64_msvc2022_64'
             artifact_name: ChatClient_Windows
             suffix: .zip
             cmake_args: -G Ninja
 
           - os: ubuntu-22.04
-            qt_version: '6.7.2'
+            qt_version: '6.7.1'
             qt_arch: 'gcc_64'
             artifact_name: ChatClient_Linux
             suffix: .tar.gz
             cmake_args: -G Ninja
 
           - os: ubuntu-22.04
-            qt_version: '6.11.1'
+            qt_version: '6.7.1'
             qt_arch: 'android_arm64_v8a'
             artifact_name: ChatClient_Android_ARM64
             suffix: .apk
@@ -50,6 +50,7 @@ jobs:
           version: ${{ matrix.qt_version }}
           arch: ${{ matrix.qt_arch }}
           cache: true
+          aqtversion: '==3.1.13'
 
       - name: Install Linux Desktop Dependencies
         if: runner.os == 'Linux' && matrix.qt_arch == 'gcc_64'

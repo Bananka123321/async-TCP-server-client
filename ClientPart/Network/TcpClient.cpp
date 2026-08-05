@@ -33,7 +33,7 @@ bool TCPClient::setupSocket() {
     socket_->setPeerVerifyMode(QSslSocket::VerifyNone);
     socket_->setProtocol(QSsl::TlsV1_2OrLater);
 
-    socket_->connectToHostEncrypted(IPADRESS_dev, port_);
+    socket_->connectToHostEncrypted(IPADRESS_dep, port_);
 
     if (!socket_->waitForConnected(5000)) {
         socket_->deleteLater();
