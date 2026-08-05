@@ -99,14 +99,10 @@ void Handler::onGetDialogsResponse(const bool success, const std::vector<MetaDia
 
 void Handler::onResumeConnectionResponse(const bool success) {
     if(success) {
-        emit S_ResumeConnectionSucess();
+        emit S_ResumeConnectionSuccess();
     }
 }
 
 void Handler::onResumeSessionResponse(const bool success, const std::string& token) {
-    if(success) {
-        emit S_ResumeSessionSucess(token);
-    } else {
-        emit S_ResumeSessionFailed();
-    }
+    emit S_ResumeSessionResponse(success, token);
 }

@@ -44,8 +44,7 @@ signals:
     void S_HistoryLoaded(const int64_t dialog_id, const std::vector<Message>& messages);
     void S_DialogsLoaded(const std::vector<MetaDialog_Client>& dialogs);
 
-    void S_ResumeConnectionSucess();
-    void S_ResumeSessionSucess(const std::string& token);
-    void S_ResumeSessionFailed();
+    void S_ResumeConnectionSuccess();
+    void S_ResumeSessionResponse(const bool success, const std::string& token);
 
 };
