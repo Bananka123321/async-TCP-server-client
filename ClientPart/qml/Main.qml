@@ -11,47 +11,32 @@ ApplicationWindow {
     title: "Ivan Messenger"
     color: "#18181B"
 
+    property bool isCheckingSession: true
+    property bool shouldShowLogin: false
+
     StackView {
         id: authStackView
         anchors.fill: parent
 
-        pushEnter: Transition {
-            PropertyAnimation {
-                property: "opacity"
-                from: 0
-                to: 1
-                duration: 200
+        initialItem: isCheckingSession ? loadingScreenComponent : (shouldShowLogin ? loginScreenComponent : mainLayoutComponent)
+    }
+
+    Component {
+        id: loadingScreenComponent
+        Rectangle {
+            color: "#18181B"
+            Text {
+                anchors.centerIn: parent
+                text: "Подключение..."
+                color: "#A1A1AA"
+                font.pixelSize: 18
             }
         }
+    }
 
-        pushExit: Transition {
-            PropertyAnimation {
-                property: "opacity"
-                from: 1
-                to: 0
-                duration: 200
-            }
-        }
-
-        replaceEnter: Transition {
-            PropertyAnimation {
-                property: "opacity"
-                from: 0
-                to: 1
-                duration: 200
-            }
-        }
-
-        replaceExit: Transition {
-            PropertyAnimation {
-                property: "opacity"
-                from: 1
-                to: 0
-                duration: 200
-            }
-        }
-
-        initialItem: LoginScreen {
+    Component {
+        id: loginScreenComponent
+        LoginScreen {
             onLoginSucceeded: loadMainLayout()
             onSwitchToRegister: authStackView.push(registerScreenComponent)
         }
@@ -65,9 +50,51 @@ ApplicationWindow {
         }
     }
 
-    function loadMainLayout() {
-        var layoutUrl = root.width < 600 ? "MobileLayout.qml" : "DesktopLayout.qml";
+    Component {
+        id: mainLayoutComponent
+        Item {
+            Loader {
+                anchors.fill: parent
+                source: root.width < 600 ? "MobileLayout.qml" : "DesktopLayout.qml"
+            }
+        }
+    }
 
-        authStackView.replace(authStackView.currentItem, layoutUrl);
+    function loadMainLayout() {
+        console.log("[MAIN] loadMainLayout() called");
+        isCheckingSession = false;
+        shouldShowLogin = false;
+        authStackView.clear();
+        authStackView.push(mainLayoutComponent);
+        console.log("[MAIN] Main layout pushed");
+    }
+
+    function showLogin() {
+        console.log("[MAIN] showLogin() called");
+        isCheckingSession = false;
+        shouldShowLogin = true;
+        authStackView.clear();
+        authStackView.push(loginScreenComponent);
+        console.log("[MAIN] Login screen pushed");
+    }
+
+    Component.onCompleted: {
+        console.log("[MAIN] Component.onCompleted - appController:", appController);
+        console.log("[MAIN] Calling checkAndResumeSession()");
+        appController.checkAndResumeSession();
+        console.log("[MAIN] checkAndResumeSession() finished");
+    }
+
+    Connections {
+        target: appController
+        function onResumeSessionFinished(success) {
+            console.log("[MAIN] onResumeSessionFinished called with success:", success);
+            isCheckingSession = false;
+            if (success) {
+                loadMainLayout();
+            } else {
+                showLogin();
+            }
+        }
     }
 }

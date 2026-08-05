@@ -7,10 +7,7 @@
 #include "Router.h"
 #include "AppState.h"
 #include "Handler.h"
-#include "tcp_client.h"
-
-static int64_t PING_TIME_MS = 30000;
-static int32_t MAX_RECONNECT_TIME_MS = 30000;
+#include "TcpClient.h"
 
 class AppController : public QObject {
     Q_OBJECT
@@ -18,6 +15,8 @@ class AppController : public QObject {
 public:
     AppController(Router* router, AppState* state, Handler* handler, TCPClient* client);
     ~AppController();
+
+    Q_INVOKABLE void checkAndResumeSession();
 
 public slots:
     void loginRequest(const std::string& login, const std::string& password);
@@ -33,6 +32,8 @@ public slots:
 signals:
     void ping();
 
+    void resumeSessionFinished(bool success);
+
 private:
     TCPClient* client_;
     Handler* handler_;
@@ -42,4 +43,7 @@ private:
     QTimer* pingTimer = nullptr;
     QTimer* reconnectTimer = nullptr;
     int reconnectAttempts = 0;
+
+    static constexpr int64_t PING_TIME_MS = 30000;
+    static constexpr int32_t MAX_RECONNECT_TIME_MS = 30000;
 };

@@ -1,10 +1,10 @@
 #define NOMINMAX
-#include "appcontroller.h"
+#include "Appcontroller.h"
 
 AppController::AppController(Router* router, AppState* state, Handler* handler, TCPClient* client)
     : router_(router), state_(state), handler_(handler), client_(client) {
 
-    connect(handler_, &Handler::S_loginSuccess, this, [this](const std::string&, int, const std::string&){
+    connect(handler_, &Handler::S_loginSuccess, this, [this](const std::string& login, const int user_id, const std::string& connectionToken, const std::string& sessionToken){
         router_->setReconnecting(false);
         startPing();
     });
@@ -15,14 +15,21 @@ AppController::AppController(Router* router, AppState* state, Handler* handler, 
     });
 
     connect(client_, &TCPClient::connected, this, [this](){
-        if(!state_->getCurrentToken().empty()) {
-            router_->resumeConnectionRequest(state_->getCurrentToken());
+        if(!state_->getConnectionToken().empty()) {
+            router_->resumeConnectionRequest(state_->getConnectionToken());
         }
     });
 
-    connect(handler_, &Handler::S_ConnectionSucess, this, [this](){
+    connect(handler_, &Handler::S_ResumeConnectionSuccess, this, [this](){
         router_->setReconnecting(false);
         startPing();
+    });
+
+    connect(handler_, &Handler::S_ResumeSessionResponse, this, [this](const bool success, const std::string& token){
+        if (success) {
+            state_->setConnectionToken(token);
+        }
+        emit resumeSessionFinished(success);
     });
 }
 
@@ -52,6 +59,14 @@ void AppController::searchUser(const std::string& text) {
 
 void AppController::loadHistory(int64_t dialog_id, int64_t last_msg_id) {
     router_->historyRequest(dialog_id, last_msg_id);
+}
+
+void AppController::checkAndResumeSession() {
+    if (state_->hasSession()) {
+        router_->resumeSessionRequest(state_->getSessionToken().toStdString());
+    } else {
+        emit resumeSessionFinished(false);
+    }
 }
 
 void AppController::startPing() {

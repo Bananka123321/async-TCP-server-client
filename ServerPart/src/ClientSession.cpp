@@ -1,6 +1,6 @@
 #include "../include/ClientSession.h"
 
-ClientSession::ClientSession(const int sock, SSL* ssl_) : socket_(sock), user_id_(0), ssl_(ssl_), isAuthenticated_(false),
+ClientSession::ClientSession(const int sock, SSL* ssl) : socket_(sock), user_id_(0), ssl_(ssl), isAuthenticated_(false),
     last_activity_time_(
         std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::system_clock::now().time_since_epoch()).
@@ -62,4 +62,12 @@ bool ClientSession::getConnected() const {
 
 void ClientSession::setConnected(const bool newState) {
     connected_.store(newState);
+}
+
+std::string ClientSession::getTempToken() const {
+    return tempToken_;
+}
+
+void ClientSession::setTempToken(const std::string& newToken) {
+    tempToken_ = newToken;
 }

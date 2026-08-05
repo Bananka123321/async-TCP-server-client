@@ -5,9 +5,9 @@
 #include <memory>
 
 #include "Router.h"
-#include "tcp_client.h"
+#include "TcpClient.h"
 #include "Handler.h"
-#include "appcontroller.h"
+#include "Appcontroller.h"
 #include "StateBinder.h"
 #include "DialogManager.h"
 #include "LoginViewModel.h"

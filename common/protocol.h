@@ -173,6 +173,13 @@ inline std::string resumeConnectionRequest(const std::string& token) {
     return j.dump();
 }
 
+inline std::string resumeSessionRequest(const std::string& token) {
+    nlohmann::json j;
+    j["type"] = "resumeSessionRequest";
+    j["token"] = token;
+    return j.dump();
+}
+
 //      SERVER --> CLIENT
 //=================================================================================================================================================================
 
@@ -183,24 +190,26 @@ inline std::string sendMessage(const Message& msg) {
     return j.dump();
 }
 
-inline std::string loginResponse(bool success, int user_id, const std::string& login, const std::string& token, const std::string& reason = "") {
+inline std::string loginResponse(bool success, int user_id, const std::string& login, const std::string& connectToken, const std::string& sessionToken, const std::string& reason = "") {
     nlohmann::json j;
     j["type"] = "loginResponse";
     j["success"] = success;
     j["user_id"] = user_id;
     j["username"] = login;
-    j["token"] = token;
+    j["connectToken"] = connectToken;
+    j["sessionToken"] = sessionToken;
     j["error"] = reason;
     return j.dump();
 }
 
-inline std::string registerResponse(bool success, int user_id, const std::string& login, const std::string& token, const std::string& reason = "") {
+inline std::string registerResponse(bool success, int user_id, const std::string& login, const std::string& connectToken, const std::string& sessionToken, const std::string& reason = "") {
     nlohmann::json j;
     j["type"] = "registerResponse";
     j["success"] = success;
     j["user_id"] = user_id;
     j["username"] = login;
-    j["token"] = token;
+    j["connectToken"] = connectToken;
+    j["sessionToken"] = sessionToken;
     j["error"] = reason;
     return j.dump();
 }
@@ -242,6 +251,14 @@ inline std::string resumeConnectionResponse(bool success) {
     nlohmann::json j;
     j["type"] = "resumeConnectionResponse";
     j["success"] = success;
+    return j.dump();
+}
+
+inline std::string resumeSessionResponse(bool success, const std::string& token = "") {
+    nlohmann::json j;
+    j["type"] = "resumeSessionResponse";
+    j["success"] = success;
+    j["token"] = token;
     return j.dump();
 }
 

@@ -14,13 +14,13 @@ find_package(Qt6 REQUIRED COMPONENTS
 
 set(CLIENT_SOURCES
     main.cpp
-    Network/tcp_client.cpp
+    Network/TcpClient.cpp
     Network/Router.cpp
     Network/PacketIO_Client.cpp
 
     App/AppState.cpp
     App/Handler.cpp
-    App/appcontroller.cpp
+    App/Appcontroller.cpp
     App/StateBinder.cpp
     App/DialogManager.cpp
 
@@ -31,13 +31,13 @@ set(CLIENT_SOURCES
 )
 
 set(CLIENT_HEADERS
-    Network/tcp_client.h
+    Network/TcpClient.h
     Network/Router.h
     Network/PacketIO_Client.h
 
     App/AppState.h
     App/Handler.h
-    App/appcontroller.h
+    App/Appcontroller.h
     App/StateBinder.h
     App/DialogManager.h
 

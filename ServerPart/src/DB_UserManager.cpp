@@ -1,5 +1,7 @@
 #include "../include/DB_UserManager.h"
 
+DB_UserManager::DB_UserManager(const std::string& conn_str)  : conn_(conn_str) {};
+
 bool DB_UserManager::bUsernameAvailable(const std::string& username) {
     try {
         pqxx::work txn(conn_);
@@ -84,34 +86,14 @@ std::vector<User> DB_UserManager::searchUsers(const std::string& query) {
     }
 }
 
-void DB_UserManager::createSession(int user_id, const std::string& token) {
+std::optional<std::string> DB_UserManager::getUsername(int user_id) {
     try {
         pqxx::work txn(conn_);
-        txn.exec("INSERT INTO user_sessions (user_id, token) VALUES($1, $2)", pqxx::params(user_id, token));
-        txn.commit();
-    } catch(const std::exception& e) {
-        std::cerr << e.what() << '\n';
-    }
-}
-
-std::optional<int> DB_UserManager::getUserIdByToken(const std::string& token) {
-    try {
-        pqxx::work txn(conn_);
-        const auto res = txn.exec("SELECT user_id FROM user_sessions WHERE token = $1", pqxx::params(token));
-        if(res.empty()) return std::nullopt;
-        return res[0]["user_id"].as<int>();
-    } catch(const std::exception& e) {
+        const auto result = txn.exec("SELECT username FROM users WHERE id = $1;", pqxx::params(user_id));
+        if (result.empty()) return std::nullopt;
+        return result[0]["username"].as<std::string>();
+    } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';
         return std::nullopt;
-    }   
-}
-
-void DB_UserManager::deleteSession(const std::string& token) {
-    try {
-        pqxx::work txn(conn_);
-        txn.exec("DELETE FROM user_sessions WHERE token = $1", pqxx::params(token));
-        txn.commit();
-    } catch (const std::exception& e) {
-        std::cerr << "DB Error deleting session: " << e.what() << '\n';
     }
 }

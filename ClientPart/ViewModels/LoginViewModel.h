@@ -2,7 +2,7 @@
 #include <QObject>
 #include <QString>
 
-#include "appcontroller.h"
+#include "Appcontroller.h"
 #include "Router.h"
 #include "Handler.h"
 
