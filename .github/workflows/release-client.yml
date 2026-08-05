@@ -19,8 +19,8 @@ jobs:
         include:
           # --- WINDOWS ---
           - os: windows-latest
-            qt_version: '6.5.3'
-            qt_target: 'desktop'       # <-- ЯВНЫЙ TARGET
+            qt_version: '6.6.3' # <-- ИСПОЛЬЗУЕМ LTS 6.6.3 (самая стабильная для CI)
+            qt_target: 'desktop'
             qt_arch: 'win64_msvc2022_64'
             artifact_name: ChatClient_Windows
             suffix: .zip
@@ -28,8 +28,8 @@ jobs:
 
           # --- LINUX ---
           - os: ubuntu-22.04
-            qt_version: '6.5.3'
-            qt_target: 'desktop'       # <-- ЯВНЫЙ TARGET
+            qt_version: '6.6.3' # <-- ИСПОЛЬЗУЕМ LTS 6.6.3
+            qt_target: 'desktop'
             qt_arch: 'gcc_64'
             artifact_name: ChatClient_Linux
             suffix: .tar.gz
@@ -37,12 +37,13 @@ jobs:
 
           # --- ANDROID ---
           - os: ubuntu-22.04
-            qt_version: '6.5.3'
-            qt_target: 'android'       # <-- КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: target должен быть android
+            qt_version: '6.6.3' # <-- ИСПОЛЬЗУЕМ LTS 6.6.3
+            qt_target: 'android'
             qt_arch: 'android_arm64_v8a'
             artifact_name: ChatClient_Android_ARM64
             suffix: .apk
-            cmake_args: -G Ninja -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24
+            # <-- ИСПРАВЛЕНИЕ ДЛЯ ANDROID: явно указываем ABI для CMake
+            cmake_args: -G Ninja -DQT_ANDROID_ABIS=arm64-v8a -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24
 
     steps:
       - name: Checkout
@@ -50,14 +51,39 @@ jobs:
         with:
           submodules: recursive
 
+      # ==========================================================
+      # 🔍 ШАГ ОТЛАДКИ: ВЫВОДИТ СПИСОК ДОСТУПНЫХ ВЕРСИЙ И АРХИТЕКТУР
+      # ==========================================================
+      - name: Debug: List available Qt versions and architectures
+        shell: bash
+        run: |
+          echo "========================================="
+          echo "=== LINUX DESKTOP VERSIONS ==="
+          python -m aqt list-qt linux desktop || true
+          echo "=== LINUX DESKTOP ARCHS for 6.6.3 ==="
+          python -m aqt list-qt linux desktop --arch 6.6.3 || true
+          
+          echo "========================================="
+          echo "=== WINDOWS DESKTOP VERSIONS ==="
+          python -m aqt list-qt windows desktop || true
+          echo "=== WINDOWS DESKTOP ARCHS for 6.6.3 ==="
+          python -m aqt list-qt windows desktop --arch 6.6.3 || true
+          
+          echo "========================================="
+          echo "=== ANDROID VERSIONS ==="
+          python -m aqt list-qt android android || true
+          echo "=== ANDROID ARCHS for 6.6.3 ==="
+          python -m aqt list-qt android android --arch 6.6.3 || true
+          echo "========================================="
+
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ matrix.qt_version }}
-          target: ${{ matrix.qt_target }}   # <-- ПЕРЕДАЁМ TARGET В ЭКШЕН
+          target: ${{ matrix.qt_target }}
           arch: ${{ matrix.qt_arch }}
           cache: true
-          aqtversion: '==3.1.16'            # <-- Эта версия точно знает про Qt 6.7.x
+          aqtversion: '==3.3.0' # <-- ИСПРАВЛЕНИЕ: эта версия исправляет баг парсинга XML для qt_base
 
       - name: Install Linux Desktop Dependencies
         if: runner.os == 'Linux' && matrix.qt_arch == 'gcc_64'
