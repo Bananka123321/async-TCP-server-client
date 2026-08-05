@@ -18,14 +18,14 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            qt_version: '6.11.1'
+            qt_version: '6.7.2'
             qt_arch: 'win64_msvc2022_64'
             artifact_name: ChatClient_Windows
             suffix: .zip
             cmake_args: -G Ninja
 
           - os: ubuntu-22.04
-            qt_version: '6.11.1'
+            qt_version: '6.7.2'
             qt_arch: 'gcc_64'
             artifact_name: ChatClient_Linux
             suffix: .tar.gz
