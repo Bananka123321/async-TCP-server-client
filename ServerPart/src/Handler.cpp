@@ -1,6 +1,6 @@
 #include "../include/Handler.h"
 
-Handler::Handler(SessionManager& sm) : userManager_(Config::getDB().getConnectionStr()), messageManager_(Config::getDB().getConnectionStr()), dialogManager_(Config::getDB().getConnectionStr()), sessionManager_(sm), dispatcher_(sessionManager_) {
+Handler::Handler(SessionManager& sm) : userManager_(Config::getDB().getConnectionStr()), messageManager_(Config::getDB().getConnectionStr()), dialogManager_(Config::getDB().getConnectionStr()), devicesSessionManager_(Config::getDB().getConnectionStr()), sessionManager_(sm), dispatcher_(sessionManager_) {
     handlers_["loginRequest"] = [this](const auto& client, const auto& j) {
         loginRequest(client, j);
     };
@@ -32,6 +32,10 @@ Handler::Handler(SessionManager& sm) : userManager_(Config::getDB().getConnectio
     handlers_["resumeConnectionRequest"] = [this](const auto& client, const auto& j) {
         resumeConnectionRequest(client, j);
     };
+
+    handlers_["resumeSessionRequest"] = [this](const auto& client, const auto& j) {
+        resumeSessionRequest(client, j);
+    };
 }
 
 void Handler::handleMessage(const std::shared_ptr<ClientSession>& client, std::string_view msg) {
@@ -55,7 +59,7 @@ static std::mt19937& getGlobalRNG() {
     return gen;
 }
 
-std::string Handler::generateToken() {
+std::string Handler::generateConnectToken() {
     static std::mutex rng_mutex;
     std::lock_guard<std::mutex> lock(rng_mutex);
 
@@ -75,7 +79,7 @@ std::string Handler::generateToken() {
 
 void Handler::loginRequest(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j) {
     if(std::string error; !Validator::valid_string_field(j, "username", Validator::username, error) || !Validator::valid_string_field(j, "password", Validator::password, error)) {
-        dispatcher_.sendTo(client, protocol::loginResponse(false, -1, "", error));
+        dispatcher_.sendTo(client, protocol::loginResponse(false, -1, "", "", "", error));
         return;
     }
 
@@ -85,31 +89,38 @@ void Handler::loginRequest(const std::shared_ptr<ClientSession>& client, const n
         return;
     }
 
-    authSuccess(client, user_id, j["username"]);
+    const auto sessionToken = devicesSessionManager_.createToken(user_id, j["device_info"], j["ip_address"]);
+    const auto connectToken = authSuccess(client, user_id, j["username"]);
+    dispatcher_.sendTo(client, protocol::loginResponse(true, user_id, j["username"], connectToken, sessionToken.value(), error));
 }
 
 void Handler::registerRequest(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j) {
     if(std::string error; !Validator::valid_string_field(j, "username", Validator::username, error) || !Validator::valid_string_field(j, "password", Validator::password, error)) {
-        dispatcher_.sendTo(client, protocol::registerResponse(false, -1, "", error));
+        dispatcher_.sendTo(client, protocol::registerResponse(false, -1, "", "", "", error));
         return;
     }
     
     auto [success, user_id, error] = userManager_.registerUser(j["username"],j["password"]);
     if (!success) {
-        dispatcher_.sendTo(client, protocol::loginResponse(success, user_id, j["username"], "", error));
+        dispatcher_.sendTo(client, protocol::registerResponse(success, user_id, j["username"], "", error));
         return;
     }
 
+    const auto sessionToken = devicesSessionManager_.createToken(user_id, j["device_info"], j["ip_address"]);
+    const auto connectToken = authSuccess(client, user_id, j["username"]);
     authSuccess(client, user_id, j["username"]);
+    dispatcher_.sendTo(client, protocol::registerResponse(true, user_id, j["username"], connectToken, sessionToken.value(), error));
 }
 
-void Handler::authSuccess(const std::shared_ptr<ClientSession>& client, const int id, const std::string& username) {
+std::string Handler::authSuccess(const std::shared_ptr<ClientSession>& client, const int id, const std::string& username) {
     client->setUser(id, username);
     client->setIsAuthenticated(true);
-    const std::string token = generateToken();
-    userManager_.createSession(id, token);
-    dispatcher_.sendTo(client, protocol::loginResponse(true, id, username, token, ""));
+    const std::string connectToken = generateConnectToken();
+
+    userManager_.createSession(id, connectToken);
     sessionManager_.add(client);
+
+    return connectToken;
 }
 
 void Handler::sendMessage(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j) {
@@ -266,4 +277,26 @@ void Handler::resumeConnectionRequest(const std::shared_ptr<ClientSession>& clie
     client->setIsAuthenticated(true);
     sessionManager_.add(client);
     dispatcher_.sendTo(client, protocol::resumeConnectionResponse(true));
+}
+
+void Handler::resumeSessionRequest(const std::shared_ptr<ClientSession> &client, const nlohmann::json &j) {
+    const std::string token = j.value("token", "");
+    const std::string device_info = j.value("device_info", "");
+    const std::string ip_address = j.value("ip_address", "");
+
+    if (token.empty()) {
+        std::cerr << "token empty\n";
+        dispatcher_.sendTo(client, protocol::resumeSessionResponse(false));
+        return;
+    }
+
+    if (!devicesSessionManager_.isValid(token)) {
+        std::cerr << "token is not valid\n";
+        dispatcher_.sendTo(client, protocol::resumeSessionResponse(false));
+        return;
+    }
+
+    devicesSessionManager_.updateActivity(token, device_info, ip_address);
+    authSuccess(client, j["user_id"], client->getUsername());
+    dispatcher_.sendTo(client, protocol::resumeSessionResponse(true));
 }

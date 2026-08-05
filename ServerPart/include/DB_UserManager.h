@@ -18,7 +18,7 @@ class DB_UserManager {
     };
 
 public:
-    explicit DB_UserManager(const std::string& conn_str) : conn_(conn_str) {}
+    explicit DB_UserManager(const std::string& conn_str);
 
     AuthResult registerUser(const std::string& username, const std::string& password);
     AuthResult loginUser(const std::string& username, const std::string& password);

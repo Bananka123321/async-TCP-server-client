@@ -4,6 +4,7 @@
 #include "DB_UserManager.h"
 #include "DB_MessageManager.h"
 #include "DB_DialogManager.h"
+#include "DB_DevicesSessionManager.h"
 #include "SessionManager.h"
 #include "MessageDispatcher.h"
 #include "Config.h"
@@ -21,6 +22,7 @@ private:
     DB_UserManager userManager_;
     DB_MessageManager messageManager_;
     DB_DialogManager dialogManager_;
+    DB_DevicesSessionManager devicesSessionManager_;
     SessionManager& sessionManager_;
     MessageDispatcher dispatcher_;
 
@@ -36,8 +38,9 @@ private:
     void getDialogsRequest(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j);
     static void ping(const std::shared_ptr<ClientSession> &client, const nlohmann::json& j) ;
     void resumeConnectionRequest(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j);
+    void resumeSessionRequest(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j);
     
-    void authSuccess(const std::shared_ptr<ClientSession>& client, int id, const std::string& username);
+    std::string authSuccess(const std::shared_ptr<ClientSession>& client, int id, const std::string& username);
 
-    static std::string generateToken();
+    static std::string generateConnectToken();
 };

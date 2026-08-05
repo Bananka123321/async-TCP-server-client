@@ -1,5 +1,7 @@
 #include "../include/DB_UserManager.h"
 
+DB_UserManager::DB_UserManager(const std::string& conn_str)  : conn_(conn_str) {};
+
 bool DB_UserManager::bUsernameAvailable(const std::string& username) {
     try {
         pqxx::work txn(conn_);

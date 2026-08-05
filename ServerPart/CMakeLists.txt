@@ -21,6 +21,7 @@ set(SERVER_SOURCES
     src/DB_DialogManager.cpp
     src/SignalHandler.cpp
     src/PacketIO_Server.cpp
+    src/DB_DevicesSessionManager.cpp
 
     ../common/Validator.cpp
 )

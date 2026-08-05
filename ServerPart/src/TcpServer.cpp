@@ -118,8 +118,8 @@ void TcpServer::run() {
         }
 
         auto client = std::make_shared<ClientSession>(clientSocket, ssl);
+        client->setConnected(true);
 
-        
         std::thread(&TcpServer::handleClient, this, client).detach();
     }
     std::cerr << "!!!SERVER STOPPED!!!\n";
@@ -160,6 +160,7 @@ void TcpServer::startClientMonitoring() {
 
             for (auto clients = sessionManager_.getAll(); const auto& client : clients) {
                 if(now - client->getLastActivity() > SESSION_TIMEOUT_MS) {
+                    std::cerr << "Client " << client->getSocket() << " timed out\n";
                     clientDisconnect(client);
                 }
             }
