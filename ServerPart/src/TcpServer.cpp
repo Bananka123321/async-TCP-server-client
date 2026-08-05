@@ -1,7 +1,8 @@
 #include "../include/TcpServer.h"
 #include <openssl/err.h>
 
-TcpServer::TcpServer(const int port) : port_(port), serverSocket_(-1), sessionManager_(), handler_(sessionManager_) {
+TcpServer::TcpServer(const int port) : port_(port), serverSocket_(-1), sessionManager_(),
+handler_(sessionManager_), temporaryTokenManager_(Config::getDB().getConnectionStr()) {
     handler_.setDisconnectHandler([this](const std::shared_ptr<ClientSession> &client) {
         clientDisconnect(client);
     });
@@ -146,6 +147,7 @@ void TcpServer::clientDisconnect(const std::shared_ptr<ClientSession>& client) {
     shutdown(client->getSocket(), SHUT_RDWR);
 
     sessionManager_.remove(client);
+    temporaryTokenManager_.deleteSession(client->getTempToken());
 
     close(client->getSocket());
 }

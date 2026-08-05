@@ -5,6 +5,7 @@
 #include "DB_MessageManager.h"
 #include "DB_DialogManager.h"
 #include "DB_DevicesSessionManager.h"
+#include "DB_TemporaryTokenManager.h"
 #include "SessionManager.h"
 #include "MessageDispatcher.h"
 #include "Config.h"
@@ -23,6 +24,7 @@ private:
     DB_MessageManager messageManager_;
     DB_DialogManager dialogManager_;
     DB_DevicesSessionManager devicesSessionManager_;
+    DB_TemporaryTokenManager temporaryTokenManager_;
     SessionManager& sessionManager_;
     MessageDispatcher dispatcher_;
 

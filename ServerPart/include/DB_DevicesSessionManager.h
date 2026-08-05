@@ -11,11 +11,10 @@ public:
 
     std::optional<std::string> createToken(int user_id, const std::string& device_info, const std::string& ip_address);
     bool isValid(const std::string& token);
-    void insertToken(int user, const std::string& token, const std::string& device_info, const std::string& ip_address);
-    void updateActivity(const std::string& token, const std::string& device_info, const std::string& ip_address);
+    void updateActivity(const std::string& token);
     void deleteSession(const std::string& token);
     void deleteAllSessions(int user_id, const std::string& tokenSafe);
-
+    std::optional<int> getUserIdByToken(const std::string& token);
 
 private:
     pqxx::connection conn_;

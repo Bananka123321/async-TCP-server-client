@@ -173,13 +173,10 @@ inline std::string resumeConnectionRequest(const std::string& token) {
     return j.dump();
 }
 
-inline std::string resumeSessionRequest(const std::string& token, int user_id, const std::string& device_info, const std::string& ip_address) {
+inline std::string resumeSessionRequest(const std::string& token) {
     nlohmann::json j;
     j["type"] = "resumeSessionRequest";
     j["token"] = token;
-    j["user_id"] = user_id;
-    j["device_info"] = device_info;
-    j["ip_address"] = ip_address;
     return j.dump();
 }
 
@@ -257,10 +254,11 @@ inline std::string resumeConnectionResponse(bool success) {
     return j.dump();
 }
 
-inline std::string resumeSessionResponse(bool success) {
+inline std::string resumeSessionResponse(bool success, const std::string& token = "") {
     nlohmann::json j;
     j["type"] = "resumeSessionResponse";
     j["success"] = success;
+    j["token"] = token;
     return j.dump();
 }
 

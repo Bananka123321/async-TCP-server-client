@@ -11,17 +11,19 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(SERVER_SOURCES
     src/main.cpp
     src/TcpServer.cpp
-    src/DB_UserManager.cpp
     src/ClientSession.cpp
     src/Handler.cpp
     src/SessionManager.cpp
     src/MessageDispatcher.cpp
     src/Config.cpp
-    src/DB_MessageManager.cpp
-    src/DB_DialogManager.cpp
     src/SignalHandler.cpp
     src/PacketIO_Server.cpp
+
+    src/DB_MessageManager.cpp
+    src/DB_DialogManager.cpp
+    src/DB_UserManager.cpp
     src/DB_DevicesSessionManager.cpp
+    src/DB_TemporaryTokenManager.cpp
 
     ../common/Validator.cpp
 )

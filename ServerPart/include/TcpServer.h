@@ -7,6 +7,7 @@
 #include "Handler.h"
 #include "ClientSession.h"
 #include "SessionManager.h"
+#include "DB_TemporaryTokenManager.h"
 
 static SSL_CTX* g_ssl_ctx = nullptr;
 static int64_t HEARTBEAT_INTERVAL_MS = 30000;
@@ -31,6 +32,7 @@ private:
 
     SessionManager sessionManager_;
     Handler handler_;
+    DB_TemporaryTokenManager temporaryTokenManager_;
 
     friend class MessageDispatcher;
 

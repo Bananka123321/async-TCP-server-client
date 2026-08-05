@@ -22,11 +22,13 @@ public:
     [[nodiscard]] bool getIsAuthenticated() const;
     [[nodiscard]] int64_t getLastActivity() const;
     [[nodiscard]] bool getConnected() const;
+    [[nodiscard]] std::string getTempToken() const;
 
     void setUser(int new_id, const std::string& new_username);
     void setIsAuthenticated(bool value);
     void setLastActivity(int64_t newTimestamp);
     void setConnected(bool newState);
+    void setTempToken(const std::string& newToken);
 
     [[nodiscard]] bool send(const std::string& message) const;
     bool receive(std::string& message) const;
@@ -35,6 +37,7 @@ private:
     int socket_;
     int user_id_;
     std::string username_;
+    std::string tempToken_;
     SSL* ssl_;
     std::atomic<bool> isAuthenticated_;
     std::atomic<int64_t> last_activity_time_{0};

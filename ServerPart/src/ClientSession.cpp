@@ -63,3 +63,11 @@ bool ClientSession::getConnected() const {
 void ClientSession::setConnected(const bool newState) {
     connected_.store(newState);
 }
+
+std::string ClientSession::getTempToken() const {
+    return tempToken_;
+}
+
+void ClientSession::setTempToken(const std::string& newToken) {
+    tempToken_ = newToken;
+}

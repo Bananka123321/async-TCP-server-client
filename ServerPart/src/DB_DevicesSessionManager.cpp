@@ -1,7 +1,6 @@
 #include "DB_DevicesSessionManager.h"
 
 #include <random>
-
 #include "iostream"
 
 DB_DevicesSessionManager::DB_DevicesSessionManager(const std::string& conn_str) : conn_(conn_str) {};
@@ -39,37 +38,30 @@ bool DB_DevicesSessionManager::isValid(const std::string& token) {
             "expires_at > CURRENT_TIMESTAMP;"
             , pqxx::params(token));
 
-        if (result.empty()) {
-            txn.exec("DELETE FROM user_sessions WHERE token = $1;", pqxx::params(token));
+        if (!result.empty()) return true;
+
+        const auto check = txn.exec(
+            "SELECT 1 FROM user_sessions WHERE token = $1",
+            pqxx::params(token));
+
+        if (!check.empty()) {
+            txn.exec("DELETE FROM user_sessions WHERE token = $1", pqxx::params(token));
             txn.commit();
-            return false;
         }
 
-        return true;
+        return false;
     } catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
         return false;
     }
 }
 
-void DB_DevicesSessionManager::insertToken(int user, const std::string& token, const std::string& device_info, const std::string& ip_address) {
-    try {
-        pqxx::work txn(conn_);
-        txn.exec("INSERT INTO user_sessions (user_id, token, device_info, ip_address) "
-                 "VALUES ($1, $2, $3, $4);",
-                 pqxx::params(user, token, device_info, ip_address));
-        txn.commit();
-    } catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
-    }
-}
-
-void DB_DevicesSessionManager::updateActivity(const std::string& token, const std::string& device_info, const std::string& ip_address) {
+void DB_DevicesSessionManager::updateActivity(const std::string& token) {
     try {
         pqxx::work txn(conn_);
         txn.exec("UPDATE user_sessions SET last_activity = CURRENT_TIMESTAMP "
-                 "WHERE token = $1 AND device_info = $2 AND ip_address = $3;",
-                 pqxx::params(token, device_info, ip_address));
+                 "WHERE token = $1;",
+                 pqxx::params(token));
         txn.commit();
     } catch (const std::exception& e) {
         std::cerr << "Failed to update activity: " << e.what() << std::endl;
@@ -94,5 +86,19 @@ void DB_DevicesSessionManager::deleteAllSessions(int user_id, const std::string 
         txn.commit();
     } catch (const std::exception& e) {
         std::cerr << "Failed to close all sessions:" << e.what() << std::endl;
+    }
+}
+
+std::optional<int> DB_DevicesSessionManager::getUserIdByToken(const std::string& token) {
+    try {
+        pqxx::work txn(conn_);
+        const auto result = txn.exec("SELECT user_id FROM user_sessions WHERE token = $1 "
+                                     "AND expires_at > CURRENT_TIMESTAMP;",
+            pqxx::params(token));
+        if (result.empty()) return std::nullopt;
+        return result[0]["user_id"].as<int>();
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to get userId: " << e.what() << std::endl;
+        return std::nullopt;
     }
 }
