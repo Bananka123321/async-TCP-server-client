@@ -1,0 +1,80 @@
+name: Release Client - Windows
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build_windows:
+    name: Build Windows
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.7.2' # Стабильная LTS версия, которая есть на серверах
+          arch: 'win64_msvc2019_64' # ИСПРАВЛЕНО: Точное имя архитектуры из лога aqt
+          target: 'desktop'
+          setup-python: false
+          cache: true
+
+      - name: Configure CMake
+        shell: bash
+        run: |
+          cmake -S ClientPart -B ClientPart/build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DOPENSSL_ROOT_DIR="${OPENSSL_ROOT_DIR:-$OPENSSL_ROOT_DIR_11_X64}"
+
+      - name: Build
+        run: cmake --build ClientPart/build --config Release --parallel
+
+      - name: Package Windows
+        shell: pwsh
+        run: |
+          $dist = "release_pkg"
+          New-Item -ItemType Directory -Force -Path $dist
+          
+          $exePath = Get-ChildItem -Path "ClientPart/build" -Filter "Client.exe" -Recurse | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $exePath) { throw "Client.exe not found in build directory!" }
+          
+          Copy-Item $exePath "$dist/" -Force
+          if (Test-Path "config.json") { Copy-Item "config.json" "$dist/" }
+          windeployqt --release --no-translations --no-system-d3d-compiler "$dist/Client.exe"
+          Copy-Item "$env:OPENSSL_ROOT_DIR\bin\*.dll" "$dist/" -ErrorAction SilentlyContinue
+          Compress-Archive -Path "$dist/*" -DestinationPath "ChatClient_Windows.zip" -Force
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChatClient_Windows
+          path: ChatClient_Windows.zip
+
+  release:
+    needs: build_windows
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ChatClient_Windows
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ChatClient_Windows.zip
+          tag_name: ${{ github.ref_name }}
+          body: |
+            ### Release ${{ github.ref_name }} (Windows)
+            **Server:** `31.192.108.37:6767`
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

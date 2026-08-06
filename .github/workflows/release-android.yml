@@ -1,0 +1,88 @@
+name: Release Client - Android
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build_android:
+    name: Build Android
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        id: install-qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.11.1'
+          arch: 'android_arm64_v8a'
+          target: 'android'
+          cache: true
+
+      - name: Configure CMake
+        shell: bash
+        run: |
+          cmake -S ClientPart -B ClientPart/build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR" \
+            -DQt6_DIR="$QT_ROOT_DIR/lib/cmake/Qt6" \
+            -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH \
+            -DANDROID_SDK_ROOT="$ANDROID_HOME" \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-24
+
+      - name: Build Android APK
+        run: |
+          export JAVA_HOME=$JAVA_HOME_17_X64
+          export PATH=$JAVA_HOME/bin:$PATH
+          cmake --build ClientPart/build --target Client_make_apk --parallel
+
+      - name: Package Android
+        shell: bash
+        run: |
+          apk_path=$(find ClientPart/build -name "*.apk" -type f | grep -v "unscaled" | head -n 1)
+          
+          if [ -z "$apk_path" ]; then
+            echo "APK not found! Listing build directory:"
+            find ClientPart/build -type f -name "*.apk" || true
+            exit 1
+          fi
+          
+          echo "Found APK at: $apk_path"
+          cp "$apk_path" "ChatClient_Android_ARM64.apk"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChatClient_Android_ARM64
+          path: ChatClient_Android_ARM64.apk
+
+  release:
+    needs: build_android
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ChatClient_Android_ARM64
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ChatClient_Android_ARM64.apk
+          tag_name: ${{ github.ref_name }}
+          body: |
+            ### Release ${{ github.ref_name }} (Android)
+            **Server:** `31.192.108.37:6767`
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

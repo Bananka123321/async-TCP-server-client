@@ -106,6 +106,7 @@ if (ANDROID)
     FetchContent_MakeAvailable(android_openssl)
     include(${android_openssl_SOURCE_DIR}/android_openssl.cmake)
     add_android_openssl_libraries(Client)
+    qt_finalize_target(Client)
 endif()
 
 if (NOT ANDROID)
