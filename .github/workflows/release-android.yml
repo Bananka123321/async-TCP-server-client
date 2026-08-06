@@ -45,18 +45,20 @@ jobs:
             -DANDROID_SDK_ROOT="$ANDROID_HOME" \
             -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake" \
             -DANDROID_ABI=arm64-v8a \
-            -DANDROID_PLATFORM=android-24 \
-            -DQT_ANDROID_SIGN_APK=ON \
-            -DQT_ANDROID_KEYSTORE_PATH="${{ github.workspace }}/debug.keystore" \
-            -DQT_ANDROID_KEYSTORE_ALIAS="androiddebugkey" \
-            -DQT_ANDROID_KEYSTORE_STORE_PASS="android" \
-            -DQT_ANDROID_KEYSTORE_KEY_PASS="android"
+            -DANDROID_PLATFORM=android-24
 
       - name: Build Android APK
         run: |
           export JAVA_HOME=$JAVA_HOME_17_X64
           export PATH=$JAVA_HOME/bin:$PATH
-          cmake --build ClientPart/build --parallel
+
+          export QT_ANDROID_SIGN_APK=ON
+          export QT_ANDROID_KEYSTORE_PATH="${{ github.workspace }}/debug.keystore"
+          export QT_ANDROID_KEYSTORE_ALIAS="androiddebugkey"
+          export QT_ANDROID_KEYSTORE_STORE_PASS="android"
+          export QT_ANDROID_KEYSTORE_KEY_PASS="android"
+
+          cmake --build ClientPart/build --target Client_make_apk --parallel
 
       - name: Package Android
         shell: bash
