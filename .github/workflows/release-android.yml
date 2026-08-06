@@ -56,16 +56,12 @@ jobs:
         run: |
           export JAVA_HOME=$JAVA_HOME_17_X64
           export PATH=$JAVA_HOME/bin:$PATH
-          cmake --build ClientPart/build --target Client_apk --parallel
+          cmake --build ClientPart/build --parallel
 
       - name: Package Android
         shell: bash
         run: |
-          apk_path=$(find ClientPart/build -name "*signed*.apk" -type f | head -n 1)
-          
-          if [ -z "$apk_path" ]; then
-            apk_path=$(find ClientPart/build -name "*.apk" -type f | grep -v "unscaled" | head -n 1)
-          fi
+          apk_path=$(find ClientPart/build -name "*Signed*.apk" -o -name "*.apk" -type f | grep -v "unscaled" | head -n 1)
           
           if [ -z "$apk_path" ]; then
             echo "APK not found! Listing build directory:"
