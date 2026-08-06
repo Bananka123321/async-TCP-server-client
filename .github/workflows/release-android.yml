@@ -47,31 +47,31 @@ jobs:
             -DANDROID_ABI=arm64-v8a \
             -DANDROID_PLATFORM=android-24
 
-      - name: Build Android APK
+      - name: Build and Sign Android APK
         run: |
           export JAVA_HOME=$JAVA_HOME_17_X64
           export PATH=$JAVA_HOME/bin:$PATH
 
-          export QT_ANDROID_SIGN_APK=ON
-          export QT_ANDROID_KEYSTORE_PATH="${{ github.workspace }}/debug.keystore"
-          export QT_ANDROID_KEYSTORE_ALIAS="androiddebugkey"
-          export QT_ANDROID_KEYSTORE_STORE_PASS="android"
-          export QT_ANDROID_KEYSTORE_KEY_PASS="android"
-
           cmake --build ClientPart/build --target Client_make_apk --parallel
+          
+          APKSIGNER_PATH=$(find $ANDROID_HOME/build-tools -name "apksigner" -type f | sort -V | tail -n 1)
+          echo "Используем apksigner: $APKSIGNER_PATH"
+          
+          RAW_APK=$(find ClientPart/build -name "*.apk" -type f | grep -v "unscaled" | head -n 1)
+          echo "Оригинальный APK: $RAW_APK"
+          
+          $APKSIGNER_PATH sign --ks ${{ github.workspace }}/debug.keystore \
+            --ks-pass pass:android \
+            --ks-key-alias androiddebugkey \
+            --key-pass pass:android \
+            "$RAW_APK"
+          
+          $APKSIGNER_PATH verify --verbose "$RAW_APK"
 
       - name: Package Android
         shell: bash
         run: |
-          apk_path=$(find ClientPart/build -name "*Signed*.apk" -o -name "*.apk" -type f | grep -v "unscaled" | head -n 1)
-          
-          if [ -z "$apk_path" ]; then
-            echo "APK not found! Listing build directory:"
-            find ClientPart/build -type f -name "*.apk" || true
-            exit 1
-          fi
-          
-          echo "Found APK at: $apk_path"
+          apk_path=$(find ClientPart/build -name "*.apk" -type f | grep -v "unscaled" | head -n 1)
           cp "$apk_path" "ChatClient_Android_ARM64.apk"
 
       - name: Upload Artifact
