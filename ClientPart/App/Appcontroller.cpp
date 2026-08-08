@@ -6,18 +6,31 @@ AppController::AppController(Router* router, AppState* state, Handler* handler, 
 
     connect(handler_, &Handler::S_loginSuccess, this, [this](const std::string& login, const int user_id, const std::string& connectionToken, const std::string& sessionToken){
         router_->setReconnecting(false);
-        startPing();
+        state_->saveSession(QString::fromStdString(sessionToken), user_id, QString::fromStdString(login));
+        state_->setConnectionToken(connectionToken);
+    });
+
+    connect(handler, &Handler::S_registerSuccess, this, [this](const std::string& login, const int user_id, const std::string& connectionToken, const std::string& sessionToken){
+        router_->setReconnecting(false);
+        state_->saveSession(QString::fromStdString(sessionToken), user_id, QString::fromStdString(login));
+        state_->setConnectionToken(connectionToken);
     });
 
     connect(client_, &TCPClient::connectionLose, this, [this](){
         stopPing();
-        startReconnect();
+        state_->setConnectionStatus(ConnectionState::Disconnected);
     });
 
     connect(client_, &TCPClient::connected, this, [this](){
         if(!state_->getConnectionToken().empty()) {
             router_->resumeConnectionRequest(state_->getConnectionToken());
         }
+        startPing();
+        state_->setConnectionStatus(ConnectionState::Connected);
+    });
+
+    connect(client_, &TCPClient::connecting, this, [this](){
+        state_->setConnectionStatus(ConnectionState::Connecting);
     });
 
     connect(handler_, &Handler::S_ResumeConnectionSuccess, this, [this](){
@@ -35,10 +48,6 @@ AppController::AppController(Router* router, AppState* state, Handler* handler, 
 
 AppController::~AppController() {
     stopPing();
-    if (reconnectTimer) {
-        reconnectTimer->stop();
-        reconnectTimer->deleteLater();
-    }
 }
 
 void AppController::loginRequest(const std::string& login, const std::string& password) {
@@ -73,8 +82,9 @@ void AppController::startPing() {
     if(pingTimer) return;
 
     pingTimer = new QTimer(this);
+
     connect(pingTimer, &QTimer::timeout, this, [this](){
-        emit ping();
+        router_->ping();
     });
     pingTimer->start(PING_TIME_MS);
 }
@@ -84,31 +94,4 @@ void AppController::stopPing() {
     pingTimer->stop();
     pingTimer->deleteLater();
     pingTimer = nullptr;
-}
-
-void AppController::startReconnect() {
-    router_->setReconnecting(true);
-
-    if(reconnectTimer && reconnectTimer->isActive()) return;
-    if(!reconnectTimer) {
-        reconnectTimer = new QTimer(this);
-        reconnectTimer->setSingleShot(true);
-
-        connect(reconnectTimer, &QTimer::timeout, this, [this](){
-            bool ok = client_->start();
-            if(ok) {
-                reconnectAttempts = 0;
-            } else {
-                reconnectAttempts++;
-                if(reconnectAttempts <= 10) {
-                    int delay = std::min(1000 * (1 << reconnectAttempts), MAX_RECONNECT_TIME_MS);
-                    reconnectTimer->start(delay);
-                } else {
-                    router_->setReconnecting(false);
-                }
-            }
-        });
-    }
-
-    reconnectTimer->start(1000);
 }

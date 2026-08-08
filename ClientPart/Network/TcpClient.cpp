@@ -12,6 +12,9 @@ TCPClient::TCPClient(int port, Router* msgRouter) : port_(port), router_(msgRout
 
 TCPClient::~TCPClient() {
     disconnect();
+    if(reconnectTimer_) {
+        reconnectTimer_->deleteLater();
+    }
 }
 
 bool TCPClient::start() {
@@ -23,6 +26,12 @@ bool TCPClient::start() {
 }
 
 bool TCPClient::setupSocket() {
+    if(socket_) {
+        socket_->disconnectFromHost();
+        socket_->deleteLater();
+        socket_ = nullptr;
+    }
+
     socket_ = new QSslSocket(this);
 
     connect(socket_, &QSslSocket::encrypted, this, &TCPClient::onEncrypted);
@@ -30,22 +39,18 @@ bool TCPClient::setupSocket() {
     connect(socket_, &QSslSocket::disconnected, this, &TCPClient::onDisconnected);
     connect(socket_, QOverload<const QList<QSslError>&>::of(&QSslSocket::sslErrors), this, &TCPClient::onSslErrors);
 
+    connect(socket_, &QAbstractSocket::errorOccurred, this, [this](QAbstractSocket::SocketError error) {
+        qWarning() << "Socket error:" << error << socket_->errorString() << '\n';
+        bConnected.store(false);
+
+        reconnect();
+    });
+
     socket_->setPeerVerifyMode(QSslSocket::VerifyNone);
     socket_->setProtocol(QSsl::TlsV1_2OrLater);
 
-    socket_->connectToHostEncrypted(IPADRESS_dep, port_);
-
-    if (!socket_->waitForConnected(5000)) {
-        socket_->deleteLater();
-        socket_ = nullptr;
-        return false;
-    }
-
-    if (!socket_->waitForEncrypted(5000)) {
-        socket_->deleteLater();
-        socket_ = nullptr;
-        return false;
-    }
+    socket_->connectToHostEncrypted(IPADRESS_dev, port_);
+    emit connecting();
 
     return true;
 }
@@ -53,6 +58,8 @@ bool TCPClient::setupSocket() {
 void TCPClient::onEncrypted() {
     bConnected.store(true);
     router_->setSSL(socket_);
+
+    reconnectDelay_ = 1000;
 
     emit connected();
 }
@@ -107,4 +114,20 @@ void TCPClient::disconnect() {
 bool TCPClient::isConnected() const {
     bool result = bConnected.load() && socket_ && socket_->state() == QAbstractSocket::ConnectedState;
     return result;
+}
+
+void TCPClient::reconnect() {
+    if(reconnectTimer_ && reconnectTimer_->isActive()) {
+        return;
+    }
+
+    if(!reconnectTimer_) {
+        reconnectTimer_ = new QTimer(this);
+        reconnectTimer_->setSingleShot(true);
+
+        connect(reconnectTimer_, &QTimer::timeout, this, &TCPClient::start);
+    }
+
+    reconnectTimer_->start(reconnectDelay_);
+    reconnectDelay_ = std::min(reconnectDelay_ * 2, MAX_RECONNECT_TIME_MS);
 }

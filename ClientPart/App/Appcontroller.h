@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QTimer>
 #include <string>
+#include <QtQml>
 
 #include "Router.h"
 #include "AppState.h"
@@ -27,11 +28,8 @@ public slots:
 
     void startPing();
     void stopPing();
-    void startReconnect();
 
 signals:
-    void ping();
-
     void resumeSessionFinished(bool success);
 
 private:
@@ -41,9 +39,6 @@ private:
     AppState* state_;
 
     QTimer* pingTimer = nullptr;
-    QTimer* reconnectTimer = nullptr;
-    int reconnectAttempts = 0;
 
     static constexpr int64_t PING_TIME_MS = 30000;
-    static constexpr int32_t MAX_RECONNECT_TIME_MS = 30000;
 };

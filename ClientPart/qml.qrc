@@ -9,5 +9,6 @@
         <file>qml/ChatList.qml</file>
         <file>qml/ChatView.qml</file>
         <file>qml/SearchPanel.qml</file>
+        <file>qml/ConnectionIndicator.qml</file>
     </qresource>
 </RCC>

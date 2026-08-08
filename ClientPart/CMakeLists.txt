@@ -21,7 +21,7 @@ set(CLIENT_SOURCES
     App/AppState.cpp
     App/Handler.cpp
     App/Appcontroller.cpp
-    App/StateBinder.cpp
+
     App/DialogManager.cpp
 
     ViewModels/LoginViewModel.cpp
@@ -38,7 +38,7 @@ set(CLIENT_HEADERS
     App/AppState.h
     App/Handler.h
     App/Appcontroller.h
-    App/StateBinder.h
+
     App/DialogManager.h
 
     ViewModels/LoginViewModel.h
@@ -71,6 +71,7 @@ qt_add_qml_module(Client
         qml/RegisterScreen.qml
         qml/DesktopLayout.qml
         qml/MobileLayout.qml
+        qml/ConnectionIndicator.qml
     NO_PLUGIN
     SOURCES
 )
