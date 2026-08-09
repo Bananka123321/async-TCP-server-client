@@ -39,6 +39,7 @@ private:
     AppState* state_;
 
     QTimer* pingTimer = nullptr;
+    bool pendingResumeSession_ = false;
 
     static constexpr int64_t PING_TIME_MS = 30000;
 };

@@ -12,6 +12,55 @@
 #include "LoginViewModel.h"
 #include "SearchViewModel.h"
 
+#ifdef Q_OS_ANDROID
+void startAndroidBackgroundService() {
+    QJniObject context = QNativeInterface::QAndroidApplication::context();
+    if (!context.isValid()) {
+        qWarning() << "[Android] Не удалось получить контекст";
+        return;
+    }
+
+    // 🔥 КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: используем ClassLoader приложения
+    QJniObject classLoader = context.callObjectMethod(
+        "getClassLoader", "()Ljava/lang/ClassLoader;"
+        );
+
+    QJniObject serviceName = QJniObject::fromString(
+        "org.qtproject.example.BackgroundService"
+        );
+
+    QJniObject serviceClass = classLoader.callObjectMethod(
+        "loadClass",
+        "(Ljava/lang/String;)Ljava/lang/Class;",
+        serviceName.object<jstring>()
+        );
+
+    if (!serviceClass.isValid()) {
+        qWarning() << "[Android] Класс BackgroundService не найден через ClassLoader!";
+        return;
+    }
+
+    QJniObject intent("android/content/Intent",
+                      "(Landroid/content/Context;Ljava/lang/Class;)V",
+                      context.object<jobject>(),
+                      serviceClass.object<jobject>());
+
+    if (!intent.isValid()) {
+        qWarning() << "[Android] Не удалось создать Intent";
+        return;
+    }
+
+    context.callObjectMethod("startForegroundService",
+                             "(Landroid/content/Intent;)Landroid/content/ComponentName;",
+                             intent.object<jobject>());
+
+    qInfo() << "[Android] Фоновый сервис успешно запущен";
+}
+#else
+void startAndroidBackgroundService() {}
+#endif
+
+
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
 
@@ -33,6 +82,8 @@ int main(int argc, char *argv[]) {
     auto loginVM = std::make_unique<LoginViewModel>(router.get(), handler.get(), appController.get(), &app);
     auto searchVM = std::make_unique<SearchViewModel>(router.get());
     QObject::connect(handler.get(), &Handler::S_UserSearch, searchVM.get(), &SearchViewModel::onUserSearchResults);
+
+    startAndroidBackgroundService();
 
     QQmlApplicationEngine engine;
 

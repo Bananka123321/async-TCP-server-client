@@ -56,6 +56,7 @@ qt_add_executable(Client
 
     resources.qrc
     qml.qrc
+    android/src/org/qtproject/example/BackgroundService.java
 )
 
 set_target_properties(Client PROPERTIES

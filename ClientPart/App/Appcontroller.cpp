@@ -22,11 +22,16 @@ AppController::AppController(Router* router, AppState* state, Handler* handler, 
     });
 
     connect(client_, &TCPClient::connected, this, [this](){
-        if(!state_->getConnectionToken().empty()) {
+        state_->setConnectionStatus(ConnectionState::Connected);
+
+        if(pendingResumeSession_) {
+            pendingResumeSession_ = false;
+            router_->resumeSessionRequest(state_->getSessionToken().toStdString());
+        } else if(!state_->getConnectionToken().empty()) {
             router_->resumeConnectionRequest(state_->getConnectionToken());
         }
+
         startPing();
-        state_->setConnectionStatus(ConnectionState::Connected);
     });
 
     connect(client_, &TCPClient::connecting, this, [this](){
@@ -71,10 +76,15 @@ void AppController::loadHistory(int64_t dialog_id, int64_t last_msg_id) {
 }
 
 void AppController::checkAndResumeSession() {
-    if (state_->hasSession()) {
+    if (!state_->hasSession()) {
+        emit resumeSessionFinished(false);
+        return;
+    }
+
+    if(client_->isConnected()) {
         router_->resumeSessionRequest(state_->getSessionToken().toStdString());
     } else {
-        emit resumeSessionFinished(false);
+        pendingResumeSession_ = true;
     }
 }
 
