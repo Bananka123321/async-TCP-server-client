@@ -24,7 +24,7 @@ public:
     void resumeConnectionRequest(const std::string& token);
     void resumeSessionRequest(const std::string& token);
 
-    void setSSL(QSslSocket* socket);
+    void setSocket(QSslSocket* socket);
     void setReconnecting(bool value);
 
 private:

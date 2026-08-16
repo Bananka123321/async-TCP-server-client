@@ -21,8 +21,8 @@ set(CLIENT_SOURCES
     App/AppState.cpp
     App/Handler.cpp
     App/Appcontroller.cpp
-
     App/DialogManager.cpp
+    App/Logging.cpp
 
     ViewModels/LoginViewModel.cpp
     ViewModels/SearchViewModel.cpp
@@ -38,6 +38,7 @@ set(CLIENT_HEADERS
     App/AppState.h
     App/Handler.h
     App/Appcontroller.h
+    App/Logging.h
 
     App/DialogManager.h
 
@@ -74,6 +75,7 @@ qt_add_qml_module(Client
         qml/MobileLayout.qml
         qml/ConnectionIndicator.qml
     NO_PLUGIN
+    SOURCES
     SOURCES
 )
 
@@ -114,4 +116,18 @@ endif()
 if (NOT ANDROID)
     find_package(OpenSSL REQUIRED)
     target_link_libraries(Client PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+endif()
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug-sanitize" AND NOT ANDROID)
+    option(ENABLE_SANITIZERS "Enable sanitizers" OFF)
+
+    if(ENABLE_SANITIZERS)
+        set(SANITIZER_FLAGS -fsanitize=address,undefined -fno-omit-frame-pointer -g)
+
+        # set(SANITIZER_FLAGS -fsanitize=thread,undefined -fno-omit-frame-pointer -g)
+
+        target_compile_options(Client PRIVATE ${SANITIZER_FLAGS})
+        target_link_options(Client PRIVATE ${SANITIZER_FLAGS})
+
+    endif()
 endif()
