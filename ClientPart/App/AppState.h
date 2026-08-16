@@ -4,15 +4,26 @@
 #include <QObject>
 #include <QSettings>
 #include <unordered_map>
+#include <QtQml>
 
 #include "User.h"
+
+enum class ConnectionState {
+    Disconnected = 0,
+    Connecting = 1,
+    Connected = 2
+};
+
+
+Q_ENUMS(ConnectionState)
 
 class AppState : public QObject {
     Q_OBJECT
 
     Q_PROPERTY(QString sessionToken READ getSessionToken NOTIFY sessionTokenChanged FINAL)
-    Q_PROPERTY(std::string username READ getCurrentUsername NOTIFY usernameChanged FINAL)
+    Q_PROPERTY(QString username READ getCurrentUsername NOTIFY usernameChanged FINAL)
     Q_PROPERTY(int userId READ getCurrentUserId NOTIFY userIdChanged FINAL)
+    Q_PROPERTY(ConnectionState connectionStatus READ getConnectionStatus NOTIFY connectionStateChanged FINAL)
 
 public:
     explicit AppState(QObject* parent = nullptr);
@@ -20,19 +31,22 @@ public:
     const std::unordered_map<int, std::string>& getUsers() const;
     void setUsers(const std::unordered_map<int, std::string>& newUsers);
 
-    const std::string getCurrentUsername() const;
-    void setCurrentUsername(const std::string& login);
+    QString getCurrentUsername() const;
+    void setCurrentUsername(const QString& login);
 
-    const int getCurrentUserId() const;
+    int getCurrentUserId() const;
     void setCurrentUserId(const int user_id);
 
-    const QString getSessionToken() const;
+    QString getSessionToken() const;
     void setSessionToken(const std::string& token);
 
-    const std::string getConnectionToken() const;
+    std::string getConnectionToken() const;
     void setConnectionToken(const std::string& token);
 
-    const std::string getUsernameByUserId(const int id) const;
+    std::string getUsernameByUserId(const int id) const;
+
+    ConnectionState getConnectionStatus() const;
+    void setConnectionStatus(ConnectionState newStatus);
 
     Q_INVOKABLE void saveSession(const QString& token, int id, const QString& username);
     Q_INVOKABLE void clearSession();
@@ -43,6 +57,7 @@ signals:
     void sessionTokenChanged();
     void usernameChanged();
     void userIdChanged();
+    void connectionStateChanged(ConnectionState status);
 
 private:
     User user_;
@@ -50,4 +65,5 @@ private:
     std::string connectionToken_;
     QString sessionToken_;
     QSettings settings_;
+    ConnectionState connectionStatus_;
 };

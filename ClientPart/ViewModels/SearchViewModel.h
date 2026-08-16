@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QList>
 #include <QString>
+#include <QtQml>
 
 #include "User.h"
 #include "Router.h"

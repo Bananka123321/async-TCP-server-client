@@ -57,9 +57,9 @@ void LoginViewModel::validateLoginForm(const QString& login, const QString& pass
     bool loginOk = Validator::username(login.toStdString()) == std::nullopt;
     bool passwordOk = Validator::password(password.toStdString()) == std::nullopt;
 
-    if (m_loginValid != loginOk || m_passwordValid != passwordOk) {
-        m_loginValid = loginOk;
-        m_passwordValid = passwordOk;
+    if (loginValid_ != loginOk || passwordValid_ != passwordOk) {
+        loginValid_ = loginOk;
+        passwordValid_ = passwordOk;
         emit validationChanged();
     }
 }
@@ -70,12 +70,12 @@ void LoginViewModel::validateRegisterForm(const QString& login, const QString& p
     bool repeatOk = Validator::password(passwordRepeat.toStdString()) == std::nullopt;
     bool match = (password == passwordRepeat);
 
-    if (m_registerLoginValid != loginOk || m_registerPasswordValid != passwordOk ||
-        m_registerPasswordRepeatValid != repeatOk || m_passwordsMatch != match) {
-        m_registerLoginValid = loginOk;
-        m_registerPasswordValid = passwordOk;
-        m_registerPasswordRepeatValid = repeatOk;
-        m_passwordsMatch = match;
+    if (registerLoginValid_ != loginOk || registerPasswordValid_ != passwordOk ||
+        registerPasswordRepeatValid_ != repeatOk || passwordsMatch_ != match) {
+        registerLoginValid_ = loginOk;
+        registerPasswordValid_ = passwordOk;
+        registerPasswordRepeatValid_ = repeatOk;
+        passwordsMatch_ = match;
         emit validationChanged();
     }
 }

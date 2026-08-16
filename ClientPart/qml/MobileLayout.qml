@@ -55,4 +55,10 @@ Item {
             onBackRequested: mobileStack.pop()
         }
     }
+
+    ConnectionIndicator {
+        anchors.bottom: parent.bottom
+        anchors.right: parent.right
+        anchors.margins: 16
+    }
 }

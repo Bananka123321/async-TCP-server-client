@@ -4,7 +4,9 @@ AppState::AppState(QObject* parent) : QObject(parent), settings_("IvanMessenger"
     sessionToken_ = settings_.value("sessionToken", "").toString();
     user_.user_id = settings_.value("userId", -1).toInt();
     user_.username = settings_.value("username", "").toString().toStdString();
+    connectionStatus_ = ConnectionState::Disconnected;
 }
+
 
 void AppState::setUsers(const std::unordered_map<int, std::string>& newUsers) {
     users_ = newUsers;
@@ -15,16 +17,16 @@ const std::unordered_map<int, std::string>& AppState::getUsers() const {
     return users_;
 }
 
-const std::string AppState::getCurrentUsername() const {
-    return user_.username;
+QString AppState::getCurrentUsername() const {
+    return QString::fromStdString(user_.username);
 }
 
-void AppState::setCurrentUsername(const std::string& login) {
-    user_.username = login;
+void AppState::setCurrentUsername(const QString& login) {
+    user_.username = login.toStdString();
     emit usernameChanged();
 }
 
-const int AppState::getCurrentUserId() const {
+int AppState::getCurrentUserId() const {
     return user_.user_id;
 }
 
@@ -33,7 +35,7 @@ void AppState::setCurrentUserId(const int user_id) {
     emit userIdChanged();
 }
 
-const std::string AppState::getUsernameByUserId(const int id) const {
+std::string AppState::getUsernameByUserId(const int id) const {
     auto it = users_.find(id);
     if (it != users_.end())
         return it->second;
@@ -41,7 +43,7 @@ const std::string AppState::getUsernameByUserId(const int id) const {
     return "Unknown";
 }
 
-const QString AppState::getSessionToken() const {
+QString AppState::getSessionToken() const {
     return sessionToken_;
 }
 
@@ -50,12 +52,24 @@ void AppState::setSessionToken(const std::string& token) {
     emit sessionTokenChanged();
 }
 
-const std::string AppState::getConnectionToken() const {
+std::string AppState::getConnectionToken() const {
     return connectionToken_;
 }
 
 void AppState::setConnectionToken(const std::string& token) {
     connectionToken_ = token;
+}
+
+ConnectionState AppState::getConnectionStatus() const {
+    return connectionStatus_;
+}
+
+void AppState::setConnectionStatus(ConnectionState newStatus) {
+    if(newStatus == connectionStatus_) {
+        return;
+    }
+    connectionStatus_ = newStatus;
+    emit connectionStateChanged(newStatus);
 }
 
 void AppState::saveSession(const QString& token, int id, const QString& name) {

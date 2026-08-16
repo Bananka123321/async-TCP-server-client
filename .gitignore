@@ -11,5 +11,6 @@ config.json
 server.key
 *.user
 *.log
+*.autosave
 CMakePresets.json
 CMakeLists.txt.user

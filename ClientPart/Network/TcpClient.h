@@ -6,6 +6,7 @@
 #include <string>
 #include <atomic>
 #include <functional>
+#include <QTimer>
 
 #include "Router.h"
 #include "PacketIO_Client.h"
@@ -26,6 +27,7 @@ public:
 signals:
     void connectionLose();
     void connected();
+    void connecting();
 
 private slots:
     void onEncrypted();
@@ -41,5 +43,12 @@ private:
     QByteArray m_buffer;
     std::atomic<bool> bConnected{false};
 
+    QTimer* reconnectTimer_ = nullptr;
+    int reconnectDelay_ = 1000;
+
+    static constexpr int32_t MAX_RECONNECT_TIME_MS = 30000;
+
+private:
     bool setupSocket();
+    void reconnect();
 };

@@ -8,10 +8,58 @@
 #include "TcpClient.h"
 #include "Handler.h"
 #include "Appcontroller.h"
-#include "StateBinder.h"
 #include "DialogManager.h"
 #include "LoginViewModel.h"
 #include "SearchViewModel.h"
+
+#ifdef Q_OS_ANDROID
+void startAndroidBackgroundService() {
+    QJniObject context = QNativeInterface::QAndroidApplication::context();
+    if (!context.isValid()) {
+        qWarning() << "[Android] Не удалось получить контекст";
+        return;
+    }
+
+    // 🔥 КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: используем ClassLoader приложения
+    QJniObject classLoader = context.callObjectMethod(
+        "getClassLoader", "()Ljava/lang/ClassLoader;"
+        );
+
+    QJniObject serviceName = QJniObject::fromString(
+        "org.qtproject.example.BackgroundService"
+        );
+
+    QJniObject serviceClass = classLoader.callObjectMethod(
+        "loadClass",
+        "(Ljava/lang/String;)Ljava/lang/Class;",
+        serviceName.object<jstring>()
+        );
+
+    if (!serviceClass.isValid()) {
+        qWarning() << "[Android] Класс BackgroundService не найден через ClassLoader!";
+        return;
+    }
+
+    QJniObject intent("android/content/Intent",
+                      "(Landroid/content/Context;Ljava/lang/Class;)V",
+                      context.object<jobject>(),
+                      serviceClass.object<jobject>());
+
+    if (!intent.isValid()) {
+        qWarning() << "[Android] Не удалось создать Intent";
+        return;
+    }
+
+    context.callObjectMethod("startForegroundService",
+                             "(Landroid/content/Intent;)Landroid/content/ComponentName;",
+                             intent.object<jobject>());
+
+    qInfo() << "[Android] Фоновый сервис успешно запущен";
+}
+#else
+void startAndroidBackgroundService() {}
+#endif
+
 
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
@@ -22,7 +70,6 @@ int main(int argc, char *argv[]) {
     auto client = std::make_unique<TCPClient>(6767, router.get());
     auto appController = std::make_unique<AppController>(router.get(), state.get(), handler.get(), client.get());
     auto dialogManager = std::make_unique<DialogManager>(handler.get(), state.get());
-    auto binder = std::make_unique<StateChanger>(handler.get(), state.get());
 
     client->onMessage = [h = handler.get()](const std::string& msg) {
         QMetaObject::invokeMethod(h, [h, msg]() {
@@ -30,18 +77,20 @@ int main(int argc, char *argv[]) {
         }, Qt::QueuedConnection);
     };
 
-    if (!client->start()) {
-        qWarning() << "[MAIN] Failed to start TCP client";
-    }
+    client->start();
 
     auto loginVM = std::make_unique<LoginViewModel>(router.get(), handler.get(), appController.get(), &app);
     auto searchVM = std::make_unique<SearchViewModel>(router.get());
     QObject::connect(handler.get(), &Handler::S_UserSearch, searchVM.get(), &SearchViewModel::onUserSearchResults);
 
+    startAndroidBackgroundService();
+
     QQmlApplicationEngine engine;
+
     engine.rootContext()->setContextProperty("appController", appController.get());
     engine.rootContext()->setContextProperty("loginViewModel", loginVM.get());
     engine.rootContext()->setContextProperty("searchViewModel", searchVM.get());
+    engine.rootContext()->setContextProperty("appState", state.get());
 
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
 

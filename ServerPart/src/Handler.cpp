@@ -271,6 +271,7 @@ void Handler::getDialogsRequest(const std::shared_ptr<ClientSession>& client, co
 
 void Handler::ping(const std::shared_ptr<ClientSession> &client, const nlohmann::json& j) {
     SessionManager::updateActivity(client);
+    std::cerr << "ping\n";
 }
 
 void Handler::resumeConnectionRequest(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j) {

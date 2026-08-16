@@ -1,13 +1,14 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import ClientModule
 
 Rectangle {
     id: root
     color: "#202023"
 
-    property bool isSearching: searchViewModel.isSearching
-    property var users: searchViewModel.users
+    property bool isSearching: SearchViewModel.isSearching
+    property var users: SearchViewModel.users
 
     ColumnLayout {
         anchors.fill: parent
@@ -41,7 +42,7 @@ Rectangle {
                 Timer {
                     id: searchTimer
                     interval: 300
-                    onTriggered: searchViewModel.searchUser(searchField.text)
+                    onTriggered: SearchViewModel.searchUser(searchField.text)
                 }
             }
         }

@@ -1,6 +1,7 @@
 #pragma once
 #include <QObject>
 #include <QString>
+#include <QtQml>
 
 #include "Appcontroller.h"
 #include "Router.h"
@@ -19,12 +20,12 @@ class LoginViewModel : public QObject {
 public:
     explicit LoginViewModel(Router* router, Handler* handler, AppController* appCtrl, QObject* parent);
 
-    bool loginValid() const { return m_loginValid; }
-    bool passwordValid() const { return m_passwordValid; }
-    bool registerLoginValid() const { return m_registerLoginValid; }
-    bool registerPasswordValid() const { return m_registerPasswordValid; }
-    bool registerPasswordRepeatValid() const { return m_registerPasswordRepeatValid; }
-    bool passwordsMatch() const { return m_passwordsMatch; }
+    bool loginValid() const { return loginValid_; }
+    bool passwordValid() const { return passwordValid_; }
+    bool registerLoginValid() const { return registerLoginValid_; }
+    bool registerPasswordValid() const { return registerPasswordValid_; }
+    bool registerPasswordRepeatValid() const { return registerPasswordRepeatValid_; }
+    bool passwordsMatch() const { return passwordsMatch_; }
 
 signals:
     void validationChanged();
@@ -46,10 +47,10 @@ private:
     Handler* handler_;
     AppController* appController_;
 
-    bool m_loginValid = false;
-    bool m_passwordValid = false;
-    bool m_registerLoginValid = false;
-    bool m_registerPasswordValid = false;
-    bool m_registerPasswordRepeatValid = false;
-    bool m_passwordsMatch = false;
+    bool loginValid_ = false;
+    bool passwordValid_ = false;
+    bool registerLoginValid_ = false;
+    bool registerPasswordValid_ = false;
+    bool registerPasswordRepeatValid_ = false;
+    bool passwordsMatch_ = false;
 };
