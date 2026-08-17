@@ -1,14 +1,19 @@
 #include "DB_TemporaryTokenManager.h"
+#include "../include/Logger.h"
 
-DB_TemporaryTokenManager::DB_TemporaryTokenManager(const std::string& conn_str) : conn_(conn_str) {};
+DB_TemporaryTokenManager::DB_TemporaryTokenManager(const std::string& conn_str) : conn_(conn_str) {
+    LOG_INFO(DB, "Инициализация DB_TemporaryTokenManager");
+};
 
 void DB_TemporaryTokenManager::createSession(int user_id, const std::string& token) {
     try {
         pqxx::work txn(conn_);
         txn.exec("INSERT INTO connect_tokens (user_id, token) VALUES($1, $2);", pqxx::params(user_id, token));
         txn.commit();
+
+        LOG_INFO(DB, "Создан временный токен подключения. userId=", user_id, " token=", token.substr(0, 8), "...");
     } catch(const std::exception& e) {
-        std::cerr << e.what() << '\n';
+        LOG_CRITICAL(DB, "Ошибка создания временного токена. userId=", user_id, " ошибка=", e.what());
     }
 }
 
@@ -18,11 +23,15 @@ bool DB_TemporaryTokenManager::isValid(const std::string& token) {
         const auto result = txn.exec(
             "SELECT * FROM connect_tokens WHERE token = $1;", pqxx::params(token));
 
-        if (result.empty()) return false;
+        if (result.empty()) {
+            LOG_DEBUG(DB, "Временный токен не найден. token=", token.substr(0, 8), "...");
+            return false;
+        }
 
+        LOG_DEBUG(DB, "Временный токен валиден. token=", token.substr(0, 8), "...");
         return true;
     } catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
+        LOG_CRITICAL(DB, "Ошибка проверки временного токена. token=", token.substr(0, 8), "... ошибка=", e.what());
         return false;
     }
 }
@@ -31,10 +40,15 @@ std::optional<int> DB_TemporaryTokenManager::getUserIdByToken(const std::string&
     try {
         pqxx::work txn(conn_);
         const auto res = txn.exec("SELECT user_id FROM connect_tokens WHERE token = $1;", pqxx::params(token));
-        if(res.empty()) return std::nullopt;
-        return res[0]["user_id"].as<int>();
+        if(res.empty()) {
+            LOG_DEBUG(DB, "Временный токен не найден при поиске userId. token=", token.substr(0, 8), "...");
+            return std::nullopt;
+        }
+        int userId = res[0]["user_id"].as<int>();
+        LOG_DEBUG(DB, "Найден userId по временному токену. token=", token.substr(0, 8), "... userId=", userId);
+        return userId;
     } catch(const std::exception& e) {
-        std::cerr << e.what() << '\n';
+        LOG_CRITICAL(DB, "Ошибка получения userId по временному токену. token=", token.substr(0, 8), "... ошибка=", e.what());
         return std::nullopt;
     }
 }
@@ -42,9 +56,11 @@ std::optional<int> DB_TemporaryTokenManager::getUserIdByToken(const std::string&
 void DB_TemporaryTokenManager::deleteSession(const std::string& token) {
     try {
         pqxx::work txn(conn_);
-        txn.exec("DELETE FROM connect_tokens WHERE token = $1;", pqxx::params(token));
+        const auto result = txn.exec("DELETE FROM connect_tokens WHERE token = $1;", pqxx::params(token));
         txn.commit();
+
+        LOG_INFO(DB, "Временный токен удалён. token=", token.substr(0, 8), "... удалено записей=", result.affected_rows());
     } catch (const std::exception& e) {
-        std::cerr << "DB Error deleting session: " << e.what() << '\n';
+        LOG_CRITICAL(DB, "Ошибка удаления временного токена. token=", token.substr(0, 8), "... ошибка=", e.what());
     }
 }

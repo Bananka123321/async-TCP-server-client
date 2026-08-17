@@ -1,8 +1,16 @@
 #include "../include/Handler.h"
+#include "../include/Logger.h"
 
-Handler::Handler(SessionManager& sm) : userManager_(Config::getDB().getConnectionStr()), messageManager_(Config::getDB().getConnectionStr()),
-    dialogManager_(Config::getDB().getConnectionStr()), devicesSessionManager_(Config::getDB().getConnectionStr()), temporaryTokenManager_(Config::getDB().getConnectionStr()),
-    sessionManager_(sm), dispatcher_(sessionManager_) {
+Handler::Handler(SessionManager& sm)
+    : userManager_(Config::getDB().getConnectionStr()),
+      messageManager_(Config::getDB().getConnectionStr()),
+      dialogManager_(Config::getDB().getConnectionStr()),
+      devicesSessionManager_(Config::getDB().getConnectionStr()),
+      temporaryTokenManager_(Config::getDB().getConnectionStr()),
+      sessionManager_(sm),
+      dispatcher_(sessionManager_)
+{
+    LOG_INFO(HANDLER, "Инициализация Message Handler и регистрация обработчиков");
 
     handlers_["loginRequest"] = [this](const auto& client, const auto& j) {
         loginRequest(client, j);
@@ -43,16 +51,19 @@ Handler::Handler(SessionManager& sm) : userManager_(Config::getDB().getConnectio
 
 void Handler::handleMessage(const std::shared_ptr<ClientSession>& client, std::string_view msg) {
     try {
-        auto j = nlohmann::json::parse(msg);
+        const auto j = nlohmann::json::parse(msg);
         SessionManager::updateActivity(client);
-        if (const std::string type = j["type"]; handlers_.contains(type)) {
-            handlers_[type](client, j);
-        }
-        else
-            std::cerr << "Unknown message type " << type << std::endl;    
 
+        if (const std::string type = j.value("type", "unknown"); handlers_.contains(type)) {
+            LOG_DEBUG(HANDLER, "Обработка запроса типа '", type, "' от userId=", client->getUserId());
+            handlers_[type](client, j);
+        } else {
+            LOG_WARNING(HANDLER, "Получен неизвестный тип сообщения: '", type, "' от userId=", client->getUserId());
+        }
+    } catch (const nlohmann::json::parse_error& e) {
+        LOG_WARNING(HANDLER, "Ошибка парсинга JSON от userId=", client->getUserId(), " позиция=", e.byte, " ошибка=", e.what());
     } catch (const std::exception& e) {
-        std::cerr << "JSON parse ERROR " << e.what() << std::endl;
+        LOG_CRITICAL(HANDLER, "Необработанное исключение при обработке сообщения от userId=", client->getUserId(), " ошибка=", e.what());
     }
 }
 
@@ -74,55 +85,66 @@ std::string Handler::generateConnectToken() {
     return ss.str();
 }
 
-
-
 //============================================================================================================================
 
-
-
 void Handler::loginRequest(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j) {
-    if(std::string error; !Validator::valid_string_field(j, "username", Validator::username, error) || !Validator::valid_string_field(j, "password", Validator::password, error)) {
+    std::string username = j.value("username", "");
+
+    if(std::string error; !Validator::valid_string_field(j, "username", Validator::username, error) ||
+                          !Validator::valid_string_field(j, "password", Validator::password, error)) {
+        LOG_WARNING(HANDLER, "Ошибка валидации при входе. username='", username, "' ошибка: ", error);
         dispatcher_.sendTo(client, protocol::loginResponse(false, -1, "", "", "", error));
         return;
     }
 
-    auto [success, user_id, error] = userManager_.loginUser(j["username"], j["password"]);
+    auto [success, user_id, error] = userManager_.loginUser(username, j["password"]);
     if (!success) {
-        dispatcher_.sendTo(client, protocol::loginResponse(success, user_id, j["username"], "", error));
+        LOG_WARNING(HANDLER, "Неудачная попытка входа. username='", username, "' причина: ", error);
+        dispatcher_.sendTo(client, protocol::loginResponse(false, user_id, username, "", error));
         return;
     }
 
     const auto sessionToken = devicesSessionManager_.createToken(user_id, "", "");
-    const auto connectToken = authSuccess(client, user_id, j["username"]);
+    const auto connectToken = authSuccess(client, user_id, username);
 
     if (!sessionToken.has_value()) {
-        dispatcher_.sendTo(client, protocol::loginResponse(false, user_id, "", "", "", error));
+        LOG_CRITICAL(HANDLER, "Критическая ошибка: не удалось создать токен сессии для userId=", user_id);
+        dispatcher_.sendTo(client, protocol::loginResponse(false, user_id, username, "", "", "Internal server error"));
         return;
     }
-    dispatcher_.sendTo(client, protocol::loginResponse(true, user_id, j["username"], connectToken, sessionToken.value(), error));
+
+    LOG_INFO(HANDLER, "Успешный вход пользователя. userId=", user_id, " username='", username, "'");
+    dispatcher_.sendTo(client, protocol::loginResponse(true, user_id, username, connectToken, sessionToken.value(), ""));
 }
 
 void Handler::registerRequest(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j) {
-    if(std::string error; !Validator::valid_string_field(j, "username", Validator::username, error) || !Validator::valid_string_field(j, "password", Validator::password, error)) {
+    std::string username = j.value("username", "");
+
+    if(std::string error; !Validator::valid_string_field(j, "username", Validator::username, error) ||
+                          !Validator::valid_string_field(j, "password", Validator::password, error)) {
+        LOG_WARNING(HANDLER, "Ошибка валидации при регистрации. username='", username, "' ошибка: ", error);
         dispatcher_.sendTo(client, protocol::registerResponse(false, -1, "", "", "", error));
         return;
     }
-    
-    auto [success, user_id, error] = userManager_.registerUser(j["username"],j["password"]);
+
+    auto [success, user_id, error] = userManager_.registerUser(username, j["password"]);
     if (!success) {
-        dispatcher_.sendTo(client, protocol::registerResponse(success, user_id, j["username"], "", error));
+        LOG_WARNING(HANDLER, "Неудачная попытка регистрации. username='", username, "' причина: ", error);
+        dispatcher_.sendTo(client, protocol::registerResponse(success, user_id, username, "", error));
         return;
     }
 
     const auto sessionToken = devicesSessionManager_.createToken(user_id, "", "");
-    const auto connectToken = authSuccess(client, user_id, j["username"]);
+    const auto connectToken = authSuccess(client, user_id, username);
 
     if (!sessionToken.has_value()) {
-        dispatcher_.sendTo(client, protocol::registerResponse(false, user_id, "", "", "", error));
+        LOG_CRITICAL(HANDLER, "Критическая ошибка: не удалось создать токен сессии при регистрации userId=", user_id);
+        dispatcher_.sendTo(client, protocol::registerResponse(false, user_id, username, "", "", "Internal server error"));
         return;
     }
 
-    dispatcher_.sendTo(client, protocol::registerResponse(true, user_id, j["username"], connectToken, sessionToken.value(), error));
+    LOG_INFO(HANDLER, "Успешная регистрация пользователя. userId=", user_id, " username='", username, "'");
+    dispatcher_.sendTo(client, protocol::registerResponse(true, user_id, username, connectToken, sessionToken.value(), ""));
 }
 
 std::string Handler::authSuccess(const std::shared_ptr<ClientSession>& client, const int id, const std::string& username) {
@@ -134,31 +156,40 @@ std::string Handler::authSuccess(const std::shared_ptr<ClientSession>& client, c
     client->setTempToken(connectToken);
     temporaryTokenManager_.createSession(id, connectToken);
 
+    LOG_INFO(HANDLER, "Сессия авторизована. socket_fd=", client->getSocket(),
+             " userId=", id, " username='", username, "' token=", connectToken.substr(0, 8), "...");
+
     return connectToken;
 }
 
 void Handler::sendMessage(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j) {
+    int clientUserId = client->getUserId();
+
     if (!client->getIsAuthenticated()) {
+        LOG_WARNING(HANDLER, "Попытка отправки сообщения без авторизации. socket_fd=", client->getSocket());
         dispatcher_.sendTo(client, protocol::errorMessage("Not authenticated"));
         return;
     }
-    
+
     Message msg;
     try {
         msg = j.at("data").get<Message>();
     } catch ([[maybe_unused]] const std::exception& e) {
+        LOG_WARNING(HANDLER, "Неверный формат сообщения от userId=", clientUserId);
         dispatcher_.sendTo(client, protocol::errorMessage("Invalid message format"));
         return;
     }
 
-    if (msg.sender_id != client->getUserId()) {
+    if (msg.sender_id != clientUserId) {
+        LOG_WARNING(HANDLER, "Попытка подмены sender_id! Заявлено: ", msg.sender_id, " реально: ", clientUserId, " userId=", clientUserId);
         dispatcher_.sendTo(client, protocol::errorMessage("Forbidden: sender_id mismatch"));
         return;
     }
 
-    msg.sender_id = client->getUserId();
+    msg.sender_id = clientUserId;
 
     if(const auto error = Validator::validateMessage(msg); error.has_value()) {
+        LOG_WARNING(HANDLER, "Ошибка валидации сообщения от userId=", clientUserId, " ошибка: ", error.value());
         dispatcher_.sendTo(client, protocol::errorMessage(error.value()));
         return;
     }
@@ -167,6 +198,7 @@ void Handler::sendMessage(const std::shared_ptr<ClientSession>& client, const nl
         auto&[text] = std::get<TextContent>(msg.payload);
         std::string cleanText = Validator::sanitize(text);
         if (cleanText.empty()) {
+            LOG_WARNING(HANDLER, "Попытка отправки пустого сообщения от userId=", clientUserId);
             dispatcher_.sendTo(client, protocol::errorMessage("Message is empty"));
             return;
         }
@@ -177,6 +209,7 @@ void Handler::sendMessage(const std::shared_ptr<ClientSession>& client, const nl
 
     const auto saved_id = messageManager_.saveMessage(msg);
     if (!saved_id.has_value()) {
+        LOG_CRITICAL(HANDLER, "Критическая ошибка БД: не удалось сохранить сообщение. dialogId=", msg.dialog_id);
         dispatcher_.sendTo(client, protocol::errorMessage("Database error"));
         return;
     }
@@ -185,19 +218,22 @@ void Handler::sendMessage(const std::shared_ptr<ClientSession>& client, const nl
     dialogManager_.updateLastMessage(msg);
 
     const auto& participants = dialogManager_.getDialogParticipants(msg.dialog_id);
+    int sentCount = 0;
     for (const auto participant : participants) {
         if (participant == msg.sender_id) {
             continue;
         }
 
         if (const auto& receiver = sessionManager_.getByUserId(participant)) {
-            if (!receiver->send(protocol::sendMessage(msg))) {
-                std::cerr << "Failed to send message to dialog " << msg.dialog_id << '\n';
+            if (receiver->send(protocol::sendMessage(msg))) {
+                sentCount++;
+            } else {
+                LOG_WARNING(HANDLER, "Не удалось доставить сообщение получателю. msgId=", msg.id, " receiverUserId=", participant);
             }
         }
     }
 
-    //Последующе подтверждение отправки сообщения(статус: отправлено)
+    LOG_INFO(HANDLER, "Сообщение успешно обработано и отправлено. msgId=", msg.id, " dialogId=", msg.dialog_id, " получателей=", sentCount);
 }
 
 void Handler::setDisconnectHandler(const std::function<void(std::shared_ptr<ClientSession>)> &cb) {
@@ -206,26 +242,35 @@ void Handler::setDisconnectHandler(const std::function<void(std::shared_ptr<Clie
 
 void Handler::searchUserRequest(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j) {
     if (!client->getIsAuthenticated()) {
+        LOG_WARNING(HANDLER, "Попытка поиска без авторизации. socket_fd=", client->getSocket());
         dispatcher_.sendTo(client, protocol::errorMessage("Not authenticated"));
         return;
     }
 
+    std::string query = j.value("username", "");
     if(std::string error; !Validator::valid_string_field(j, "username", Validator::search, error)) {
+        LOG_WARNING(HANDLER, "Ошибка валидации поиска от userId=", client->getUserId(), " запрос='", query, "'");
         dispatcher_.sendTo(client, protocol::errorMessage(error));
         return;
     }
 
-    const auto users = userManager_.searchUsers(j["username"].get<std::string>());
+    const auto users = userManager_.searchUsers(query);
+    LOG_DEBUG(HANDLER, "Поиск пользователей. userId=", client->getUserId(), " запрос='", query, "' найдено=", users.size());
+
     dispatcher_.sendTo(client, protocol::searchUserResponse(users));
 }
 
 void Handler::historyRequest(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j) {
+    int clientUserId = client->getUserId();
+
     if (!client->getIsAuthenticated()) {
+        LOG_WARNING(HANDLER, "Попытка запроса истории без авторизации. socket_fd=", client->getSocket());
         dispatcher_.sendTo(client, protocol::errorMessage("Not authenticated"));
         return;
     }
 
     if (!j.contains("dialog_id") || !j.contains("last_msg_id") || !j.contains("limit")) {
+        LOG_WARNING(HANDLER, "Отсутствуют обязательные поля в historyRequest от userId=", clientUserId);
         dispatcher_.sendTo(client, protocol::errorMessage("Missing required fields"));
         return;
     }
@@ -239,66 +284,73 @@ void Handler::historyRequest(const std::shared_ptr<ClientSession>& client, const
         last_msg_id = j["last_msg_id"].get<int64_t>();
         limit = j["limit"].get<int>();
     } catch (const std::exception& e) {
-        dispatcher_.sendTo(client, protocol::errorMessage("Invalid parameter types. " + std::string(e.what())));
+        LOG_WARNING(HANDLER, "Неверный тип параметров в historyRequest от userId=", clientUserId, " ошибка=", e.what());
+        dispatcher_.sendTo(client, protocol::errorMessage("Invalid parameter types"));
         return;
     }
 
     if (limit <= 0 || limit > 100) {
+        LOG_WARNING(HANDLER, "Недопустимый limit в historyRequest от userId=", clientUserId, " limit=", limit);
         dispatcher_.sendTo(client, protocol::errorMessage("Limit must be between 1 and 100"));
         return;
     }
 
-    auto participants = dialogManager_.getDialogParticipants(dialog_id);
-    if (std::ranges::find(participants, client->getUserId()) == participants.end()) {
+    if (auto participants = dialogManager_.getDialogParticipants(dialog_id); std::ranges::find(participants, clientUserId) == participants.end()) {
+        LOG_WARNING(HANDLER, "Попытка доступа к чужому диалогу! userId=", clientUserId, " dialogId=", dialog_id);
         dispatcher_.sendTo(client, protocol::errorMessage("You are not a participant of this dialog"));
         return;
     }
 
     const auto history = messageManager_.getHistory(dialog_id, last_msg_id, limit);
+    LOG_DEBUG(HANDLER, "История запрошена. userId=", clientUserId, " dialogId=", dialog_id,
+              " возвращено=", history.size(), " из запрошенных ", limit);
 
     dispatcher_.sendTo(client, protocol::historyResponse(!history.empty(), dialog_id, history));
 }
 
 void Handler::getDialogsRequest(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j) {
     if(!client->getIsAuthenticated()) {
+        LOG_WARNING(HANDLER, "Попытка запроса диалогов без авторизации. socket_fd=", client->getSocket());
         dispatcher_.sendTo(client, protocol::errorMessage("Not authenticated"));
         return;
     }
 
-    auto dialogs = dialogManager_.getUserDialogs(client->getUserId());
-    dispatcher_.sendTo(client, protocol::getDialogsResponse(!dialogs.empty(), std::move(dialogs)));
+    const auto dialogs = dialogManager_.getUserDialogs(client->getUserId());
+    LOG_DEBUG(HANDLER, "Запрос списка диалогов. userId=", client->getUserId(), " найдено=", dialogs.size());
+
+    dispatcher_.sendTo(client, protocol::getDialogsResponse(!dialogs.empty(), dialogs));
 }
 
 void Handler::ping(const std::shared_ptr<ClientSession> &client, const nlohmann::json& j) {
     SessionManager::updateActivity(client);
-    std::cerr << "ping\n";
+    LOG_DEBUG(HANDLER, "Ping получен от userId=", client->getUserId());
 }
 
 void Handler::resumeConnectionRequest(const std::shared_ptr<ClientSession>& client, const nlohmann::json& j) {
     const std::string token = j.value("token", "");
 
     if (token.empty()) {
-        std::cerr << "token empty\n";
+        LOG_WARNING(HANDLER, "resumeConnection: пустой токен от socket_fd=", client->getSocket());
         dispatcher_.sendTo(client, protocol::resumeConnectionResponse(false));
         return;
     }
 
     if (!temporaryTokenManager_.isValid(token)) {
-        std::cerr << "Invalid token\n";
+        LOG_WARNING(HANDLER, "resumeConnection: невалидный токен=", token.substr(0, 8), "... от socket_fd=", client->getSocket());
         dispatcher_.sendTo(client, protocol::resumeConnectionResponse(false));
         return;
     }
 
     const auto user_id = temporaryTokenManager_.getUserIdByToken(token);
     if(!user_id.has_value()) {
-        std::cerr << "user_id empty\n";
+        LOG_CRITICAL(HANDLER, "resumeConnection: токен валиден, но userId не найден в БД! token=", token.substr(0, 8), "...");
         dispatcher_.sendTo(client, protocol::resumeConnectionResponse(false));
         return;
     }
 
     const auto username = userManager_.getUsername(user_id.value());
     if (!username.has_value()) {
-        std::cerr << "username empty\n";
+        LOG_CRITICAL(HANDLER, "resumeConnection: userId=", user_id.value(), " найден, но username не найден в БД!");
         dispatcher_.sendTo(client, protocol::resumeConnectionResponse(false));
         return;
     }
@@ -306,6 +358,9 @@ void Handler::resumeConnectionRequest(const std::shared_ptr<ClientSession>& clie
     client->setUser(user_id.value(), username.value());
     client->setIsAuthenticated(true);
     sessionManager_.add(client);
+
+    LOG_INFO(HANDLER, "Успешное восстановление соединения. userId=", user_id.value(), " username='", username.value(), "' token=", token.substr(0, 8), "...");
+
     dispatcher_.sendTo(client, protocol::resumeConnectionResponse(true));
 }
 
@@ -313,32 +368,35 @@ void Handler::resumeSessionRequest(const std::shared_ptr<ClientSession> &client,
     const std::string token = j.value("token", "");
 
     if (token.empty()) {
-        std::cerr << "token empty\n";
+        LOG_WARNING(HANDLER, "resumeSession: пустой токен от socket_fd=", client->getSocket());
         dispatcher_.sendTo(client, protocol::resumeSessionResponse(false));
         return;
     }
 
     if (!devicesSessionManager_.isValid(token)) {
-        std::cerr << "token is not valid\n";
+        LOG_WARNING(HANDLER, "resumeSession: невалидный токен сессии=", token.substr(0, 8), "... от socket_fd=", client->getSocket());
         dispatcher_.sendTo(client, protocol::resumeSessionResponse(false));
         return;
     }
 
     const auto user_id = devicesSessionManager_.getUserIdByToken(token);
     if (!user_id.has_value()) {
-        std::cerr << "user_id empty\n";
+        LOG_CRITICAL(HANDLER, "resumeSession: токен сессии валиден, но userId не найден в БД! token=", token.substr(0, 8), "...");
         dispatcher_.sendTo(client, protocol::resumeSessionResponse(false));
         return;
     }
 
     const auto username = userManager_.getUsername(user_id.value());
     if (!username.has_value()) {
-        std::cerr << "username empty\n";
+        LOG_CRITICAL(HANDLER, "resumeSession: userId=", user_id.value(), " найден, но username не найден в БД!");
         dispatcher_.sendTo(client, protocol::resumeSessionResponse(false));
         return;
     }
 
     devicesSessionManager_.updateActivity(token);
     const auto tempToken = authSuccess(client, user_id.value(), username.value());
+
+    LOG_INFO(HANDLER, "Успешное восстановление сессии. userId=", user_id.value(), " username='", username.value(), "' новый connectToken=", tempToken.substr(0, 8), "...");
+
     dispatcher_.sendTo(client, protocol::resumeSessionResponse(true, tempToken));
 }

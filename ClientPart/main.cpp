@@ -73,7 +73,6 @@ void startAndroidBackgroundService() {
         return;
     }
 
-    // 🔥 КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: используем ClassLoader приложения
     QJniObject classLoader = context.callObjectMethod(
         "getClassLoader", "()Ljava/lang/ClassLoader;"
         );

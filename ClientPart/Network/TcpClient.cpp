@@ -1,5 +1,5 @@
 #include "TcpClient.h"
-#include "App/Logging.h"
+#include "Logging.h"
 
 #ifdef Q_OS_ANDROID
 const QString IPADRESS_dev = "192.168.0.182";

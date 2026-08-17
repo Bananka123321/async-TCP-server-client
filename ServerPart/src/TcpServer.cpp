@@ -1,8 +1,15 @@
 #include "../include/TcpServer.h"
+#include "../include/Logger.h"
 #include <openssl/err.h>
+#include <cstring>
+#include <arpa/inet.h>
 
-TcpServer::TcpServer(const int port) : port_(port), serverSocket_(-1), ssl_ctx_(nullptr), sessionManager_(),
-handler_(sessionManager_), temporaryTokenManager_(Config::getDB().getConnectionStr()) {
+TcpServer::TcpServer(const int port)
+    : port_(port), serverSocket_(-1), ssl_ctx_(nullptr), sessionManager_(),
+      handler_(sessionManager_), temporaryTokenManager_(Config::getDB().getConnectionStr())
+{
+    LOG_INFO(MAIN, "Инициализация TcpServer на порту ", port_);
+
     handler_.setDisconnectHandler([this](const std::shared_ptr<ClientSession> &client) {
         clientDisconnect(client);
     });
@@ -12,28 +19,30 @@ handler_(sessionManager_), temporaryTokenManager_(Config::getDB().getConnectionS
 
     ssl_ctx_ = SSL_CTX_new(TLS_server_method());
     if (!ssl_ctx_) {
-        std::cerr << "Failed to create SSL context\n";
+        LOG_CRITICAL(MAIN, "Критическая ошибка: не удалось создать SSL контекст");
         ERR_print_errors_fp(stderr);
         return;
     }
 
     if (SSL_CTX_use_certificate_file(ssl_ctx_, "server.crt", SSL_FILETYPE_PEM) <= 0) {
-        std::cerr << "Failed to load certificate\n";
+        LOG_CRITICAL(MAIN, "Критическая ошибка: не удалось загрузить сертификат server.crt");
         ERR_print_errors_fp(stderr);
         return;
     }
-    
+
     if (SSL_CTX_use_PrivateKey_file(ssl_ctx_, "server.key", SSL_FILETYPE_PEM) <= 0) {
-        std::cerr << "Failed to load private key\n";
+        LOG_CRITICAL(MAIN, "Критическая ошибка: не удалось загрузить приватный ключ server.key");
         ERR_print_errors_fp(stderr);
         return;
     }
 
     if (!SSL_CTX_check_private_key(ssl_ctx_)) {
-        std::cerr << "Failed to check private key\n";
+        LOG_CRITICAL(MAIN, "Критическая ошибка: несоответствие приватного ключа и сертификата");
         ERR_print_errors_fp(stderr);
         return;
     }
+
+    LOG_INFO(MAIN, "SSL контекст успешно инициализирован");
 }
 
 TcpServer::~TcpServer() {
@@ -41,7 +50,11 @@ TcpServer::~TcpServer() {
 }
 
 bool TcpServer::start() {
-    if (!setupSocket()) return false;
+    LOG_INFO(MAIN, "Запуск сервера...");
+    if (!setupSocket()) {
+        LOG_CRITICAL(MAIN, "Не удалось запустить сервер: ошибка настройки сокета");
+        return false;
+    }
 
     startClientMonitoring();
     run();
@@ -50,10 +63,21 @@ bool TcpServer::start() {
 }
 
 void TcpServer::stop() {
+    LOG_INFO(MAIN, "Остановка сервера...");
+
     if(monitorRunning_.load()) monitorRunning_.store(false);
     if(serverRunning_.load()) serverRunning_.store(false);
-    if(monitor_thread_.joinable()) monitor_thread_.join();
-    
+
+    if (serverSocket_ != -1) {
+        shutdown(serverSocket_, SHUT_RDWR);
+        close(serverSocket_);
+        serverSocket_ = -1;
+    }
+
+    if(monitor_thread_.joinable()) {
+        monitor_thread_.join();
+    }
+
     if(ssl_ctx_) {
         SSL_CTX_free(ssl_ctx_);
         ssl_ctx_ = nullptr;
@@ -61,23 +85,20 @@ void TcpServer::stop() {
 
     EVP_cleanup();
     CONF_modules_unload(1);
-    
-    if (serverSocket_ != -1) {
-        shutdown(serverSocket_, SHUT_RDWR);
-        close(serverSocket_);
-    }
+
+    LOG_INFO(MAIN, "Сервер успешно остановлен");
 }
 
 bool TcpServer::setupSocket() {
     serverSocket_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (serverSocket_ == -1) {
-        std::cerr << "Failed to create socket\n";
+        LOG_CRITICAL(MAIN, "Не удалось создать сокет: ", strerror(errno));
         return false;
     }
 
     constexpr int opt = 1;
-    if (setsockopt(serverSocket_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) { //Forced restart server
-        std::cerr << "setsockopt failed\n";
+    if (setsockopt(serverSocket_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        LOG_WARNING(MAIN, "Не удалось установить SO_REUSEADDR: ", strerror(errno));
     }
 
     sockaddr_in serverAddr{};
@@ -86,64 +107,91 @@ bool TcpServer::setupSocket() {
     serverAddr.sin_addr.s_addr = INADDR_ANY;
 
     if (bind(serverSocket_, reinterpret_cast<sockaddr *>(&serverAddr), sizeof(serverAddr)) == -1) {
-        std::cerr << "Bind failed\n";
+        LOG_CRITICAL(MAIN, "Не удалось выполнить bind на порт ", port_, ": ", strerror(errno));
         return false;
     }
 
     if (listen(serverSocket_, SOMAXCONN) == -1) {
-        std::cerr << "Listen failed\n";
+        LOG_CRITICAL(MAIN, "Не удалось выполнить listen: ", strerror(errno));
         return false;
     }
 
-    std::cout << "Server listening on port " << port_ << std::endl;
+    LOG_INFO(MAIN, "Сервер успешно запущен и слушает порт ", port_);
     return true;
 }
 
 void TcpServer::run() {
     serverRunning_ = true;
+    LOG_INFO(MAIN, "Цикл принятия подключений (accept loop) запущен");
+
     sockaddr_in clientAddr{};
-    socklen_t addrLen = sizeof(clientAddr); 
+    socklen_t addrLen = sizeof(clientAddr);
+
     while (serverRunning_.load()) {
-        int clientSocket = accept(serverSocket_, reinterpret_cast<sockaddr *>(&clientAddr), (socklen_t*)&addrLen);
-        if (clientSocket == -1) continue;
+        int clientSocket = accept(serverSocket_, reinterpret_cast<sockaddr *>(&clientAddr), &addrLen);
+
+        if (clientSocket == -1) {
+            if (serverRunning_.load()) {
+                LOG_WARNING(MAIN, "Ошибка accept: ", strerror(errno));
+            }
+            continue;
+        }
+
+        char ipStr[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &clientAddr.sin_addr, ipStr, INET_ADDRSTRLEN);
+
+        LOG_INFO(NETWORK, "Новое подключение. socket_fd=", clientSocket, " ip=", ipStr);
 
         SSL* ssl = SSL_new(ssl_ctx_);
         SSL_set_fd(ssl, clientSocket);
 
         if (SSL_accept(ssl) <= 0) {
-            std::cerr << "TLS Handshake failed\n";
+            LOG_WARNING(NETWORK, "Ошибка TLS Handshake для socket_fd=", clientSocket, " ip=", ipStr);
             ERR_print_errors_fp(stderr);
             SSL_free(ssl);
             close(clientSocket);
             continue;
         }
 
+        LOG_INFO(NETWORK, "TLS Handshake успешен. socket_fd=", clientSocket);
+
         auto client = std::make_shared<ClientSession>(clientSocket, ssl);
         client->setConnected(true);
 
         std::thread(&TcpServer::handleClient, this, client).detach();
     }
-    std::cerr << "!!!SERVER STOPPED!!!\n";
+
+    LOG_INFO(MAIN, "Цикл принятия подключений остановлен");
 }
 
 void TcpServer::handleClient(const std::shared_ptr<ClientSession>& client) {
+    LOG_DEBUG(NETWORK, "Поток обработки клиента запущен. socket_fd=", client->getSocket());
+
     try {
         std::string msg;
         client->setConnected(true);
-        while(serverRunning_.load() && client->receive(msg))
+
+        while(serverRunning_.load() && client->receive(msg)) {
             handler_.handleMessage(client, msg);
+        }
+
+        LOG_INFO(NETWORK, "Клиент завершил соединение (нормальный выход из цикла receive). socket_fd=", client->getSocket(), " userId=", client->getUserId());
         clientDisconnect(client);
-    } catch(std::exception& e){
-        std::cerr << "Client thread ERROR: " << e.what() << '\n';
+
+    } catch(const std::exception& e) {
+        LOG_WARNING(NETWORK, "Необработанное исключение в потоке клиента. socket_fd=", client->getSocket(), " userId=", client->getUserId(), " ошибка=", e.what());
         clientDisconnect(client);
     }
 }
 
 void TcpServer::clientDisconnect(const std::shared_ptr<ClientSession>& client) {
-    if(!client->getConnected()) return;
+    if(!client || !client->getConnected()) {
+        return;
+    }
+
+    LOG_INFO(NETWORK, "Инициализация корректного отключения клиента. socket_fd=", client->getSocket(), " userId=", client->getUserId());
 
     client->setConnected(false);
-
     shutdown(client->getSocket(), SHUT_RDWR);
 
     sessionManager_.remove(client);
@@ -155,18 +203,23 @@ void TcpServer::clientDisconnect(const std::shared_ptr<ClientSession>& client) {
 void TcpServer::startClientMonitoring() {
     monitorRunning_ = true;
     monitor_thread_ = std::thread([this](){
+        LOG_INFO(MAIN, "Поток мониторинга сессий запущен. Интервал проверки=", HEARTBEAT_INTERVAL_MS, "мс, Таймаут=", SESSION_TIMEOUT_MS, "мс");
+
         while (monitorRunning_.load()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(HEARTBEAT_INTERVAL_MS));
 
-            const int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+            const int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
 
             for (auto clients = sessionManager_.getAll(); const auto& client : clients) {
                 if(now - client->getLastActivity() > SESSION_TIMEOUT_MS) {
-                    std::cerr << "Client " << client->getSocket() << " timed out\n";
+                    LOG_WARNING(NETWORK, "Таймаут сессии клиента (бездействие). socket_fd=", client->getSocket(), " userId=", client->getUserId());
                     clientDisconnect(client);
                 }
             }
         }
+
+        LOG_INFO(MAIN, "Поток мониторинга сессий остановлен");
     });
 
     monitor_thread_.detach();
