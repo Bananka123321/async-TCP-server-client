@@ -1,8 +1,9 @@
 #include "SearchViewModel.h"
-#include <QDebug>
+#include "Logging.h"
 
 SearchViewModel::SearchViewModel(Router* router, QObject* parent)
     : QObject(parent), router_(router), isSearching_(false) {
+    qCDebug(logDialog) << "Инициализация SearchViewModel";
 }
 
 QList<QVariantMap> SearchViewModel::getUsers() const {
@@ -15,12 +16,13 @@ bool SearchViewModel::isSearching() const {
 
 void SearchViewModel::searchUser(const QString& username) {
     if (username.trimmed().isEmpty()) {
+        qCDebug(logDialog) << "Поле поиска пустое. Очистка результатов";
         users_.clear();
         emit usersChanged();
         return;
     }
 
-    qDebug() << "[SearchViewModel] Searching for:" << username;
+    qCInfo(logDialog) << "Поиск пользователя:" << username;
     isSearching_ = true;
     emit isSearchingChanged();
 
@@ -28,7 +30,7 @@ void SearchViewModel::searchUser(const QString& username) {
 }
 
 void SearchViewModel::onUserSearchResults(const std::vector<User>& users) {
-    qDebug() << "[SearchViewModel] Received" << users.size() << "users";
+    qCInfo(logDialog) << "Получены результаты поиска. Найдено пользователей:" << users.size();
 
     users_.clear();
     for (const auto& user : users) {

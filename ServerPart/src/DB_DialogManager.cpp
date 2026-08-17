@@ -1,6 +1,9 @@
 #include "../include/DB_DialogManager.h"
+#include "../include/Logger.h"
 
-DB_DialogManager::DB_DialogManager(const std::string& conn_str) : conn_(conn_str) {}
+DB_DialogManager::DB_DialogManager(const std::string& conn_str) : conn_(conn_str) {
+    LOG_INFO(DB, "Инициализация DB_DialogManager");
+}
 
 void DB_DialogManager::upsertDialog(int user_id, int peer_id, int64_t msg_id, const std::string& preview, int64_t timestamp) {
     try {
@@ -18,8 +21,10 @@ void DB_DialogManager::upsertDialog(int user_id, int peer_id, int64_t msg_id, co
         );
 
         txn.commit();
+
+        LOG_DEBUG(DB, "Upsert диалога. userId=", user_id, " peerId=", peer_id, " msgId=", msg_id);
     } catch (const std::exception& e) {
-        std::cerr << "DB error in upsertDialog: " << e.what() << '\n';
+        LOG_CRITICAL(DB, "Ошибка upsert диалога. userId=", user_id, " peerId=", peer_id, " msgId=", msg_id, " ошибка=", e.what());
     }
 }
 
@@ -37,8 +42,10 @@ void DB_DialogManager::updateLastMessage(const Message &msg) {
             pqxx::params(msg.dialog_id, msg.id, msg.getPreview(), msg.sender_id, msg.created_at_ms)
         );
         txn.commit();
+
+        LOG_DEBUG(DB, "Обновлено последнее сообщение диалога. dialogId=", msg.dialog_id, " msgId=", msg.id, " senderId=", msg.sender_id);
     } catch (const std::exception& e) {
-        std::cerr << "DB error in updateLastMessage: " << e.what() << '\n';
+        LOG_CRITICAL(DB, "Ошибка обновления последнего сообщения. dialogId=", msg.dialog_id, " msgId=", msg.id, " ошибка=", e.what());
     }
 }
 
@@ -85,8 +92,10 @@ std::vector<MetaDialog_Client> DB_DialogManager::getUserDialogs(int user_id) {
             md.unread_count = row["unread_count"].as<int>();
             result.push_back(std::move(md));
         }
+
+        LOG_INFO(DB, "Загружены диалоги пользователя. userId=", user_id, " количество=", result.size());
     } catch (const std::exception& e) {
-        std::cerr << "DB error in getUserDialogs: " << e.what() << '\n';
+        LOG_CRITICAL(DB, "Ошибка загрузки диалогов пользователя. userId=", user_id, " ошибка=", e.what());
     }
     return result;
 }
@@ -102,10 +111,12 @@ std::vector<int> DB_DialogManager::getDialogParticipants(int64_t dialog_id) {
             );
 
         for (const auto& row : rows) {
-            result.push_back(row["dialog_id"].as<int>());
+            result.push_back(row["user_id"].as<int>());
         }
+
+        LOG_DEBUG(DB, "Получены участники диалога. dialogId=", dialog_id, " количество=", result.size());
     } catch (const std::exception& e) {
-        std::cerr << "DB error in getDialogParticipants: " << e.what() << '\n';
+        LOG_CRITICAL(DB, "Ошибка получения участников диалога. dialogId=", dialog_id, " ошибка=", e.what());
     }
     return result;
 }

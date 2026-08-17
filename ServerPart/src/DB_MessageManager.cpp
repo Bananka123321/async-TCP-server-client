@@ -1,7 +1,9 @@
 #include "../include/DB_MessageManager.h"
-#include <iostream>
+#include "../include/Logger.h"
 
-DB_MessageManager::DB_MessageManager(const std::string& conn_str) : conn_(conn_str) {};
+DB_MessageManager::DB_MessageManager(const std::string& conn_str) : conn_(conn_str) {
+    LOG_INFO(DB, "Инициализация DB_MessageManager");
+};
 
 std::optional<int64_t> DB_MessageManager::saveMessage(const Message& message) {
     try {
@@ -14,9 +16,13 @@ std::optional<int64_t> DB_MessageManager::saveMessage(const Message& message) {
             pqxx::params(message.dialog_id, message.sender_id, static_cast<int>(message.type), message.created_at_ms, payload_json));
 
         txn.commit();
-        return result[0][0].as<int64_t>();
+
+        auto msgId = result[0][0].as<int64_t>();
+        LOG_DEBUG(DB, "Сообщение сохранено. msgId=", msgId, " dialogId=", message.dialog_id, " senderId=", message.sender_id, " type=", static_cast<int>(message.type));
+
+        return msgId;
     } catch(const std::exception& e) {
-        std::cerr << e.what() << '\n';
+        LOG_CRITICAL(DB, "Ошибка сохранения сообщения. dialogId=", message.dialog_id, " senderId=", message.sender_id, " ошибка=", e.what());
         return std::nullopt;
     }
 };
@@ -35,6 +41,8 @@ std::vector<Message> DB_MessageManager::getHistory(int64_t dialog_id, int64_t be
             pqxx::params(dialog_id, before_id, limit)
         );
 
+        result.reserve(rows.size());
+
         for (const auto& row : rows) {
             Message msg;
             msg.id = row["id"].as<int64_t>();
@@ -48,9 +56,10 @@ std::vector<Message> DB_MessageManager::getHistory(int64_t dialog_id, int64_t be
 
             result.push_back(std::move(msg));
         }
-    } catch(const std::exception& e) {
-        std::cerr << e.what() << '\n';
 
+        LOG_INFO(DB, "Загружена история диалога. dialogId=", dialog_id, " beforeId=", before_id, " запрошено=", limit, " получено=", result.size());
+    } catch(const std::exception& e) {
+        LOG_CRITICAL(DB, "Ошибка загрузки истории. dialogId=", dialog_id, " beforeId=", before_id, " ошибка=", e.what());
     }
     return result;
 };
@@ -80,30 +89,36 @@ std::string DB_MessageManager::serializePayload(const MessagePayload& payload) {
 }
 
 MessagePayload DB_MessageManager::deserializePayload(const std::string& json, const MessageType type) {
-    auto j = nlohmann::json::parse(json);
+    try {
+        auto j = nlohmann::json::parse(json);
 
-    switch (type) {
-        case MessageType::Text:
-            return TextContent{
-            .text = j["text"].get<std::string>()
-        };
+        switch (type) {
+            case MessageType::Text:
+                return TextContent{
+                .text = j["text"].get<std::string>()
+            };
 
-        case MessageType::Image:
-        case MessageType::File:
-            return MediaContent{
-            .url = j["url"].get<std::string>(),
-            .caption = j.value("caption", ""),
-            .filename = j.value("filename", ""),
-            .size_bytes = j.value("size_bytes", 0ULL)
-        };
+            case MessageType::Image:
+            case MessageType::File:
+                return MediaContent{
+                .url = j["url"].get<std::string>(),
+                .caption = j.value("caption", ""),
+                .filename = j.value("filename", ""),
+                .size_bytes = j.value("size_bytes", 0ULL)
+            };
 
-        case MessageType::Voice:
-            return VoiceContent{
-            .url = j["url"].get<std::string>(),
-            .duration_sec = j["duration_sec"].get<uint32_t>()
-        };
+            case MessageType::Voice:
+                return VoiceContent{
+                .url = j["url"].get<std::string>(),
+                .duration_sec = j["duration_sec"].get<uint32_t>()
+            };
 
-        default:
-            throw std::runtime_error("Unknown message type");
+            default:
+                LOG_WARNING(DB, "Неизвестный тип сообщения при десериализации. type=", static_cast<int>(type));
+                throw std::runtime_error("Unknown message type");
+        }
+    } catch (const nlohmann::json::exception& e) {
+        LOG_CRITICAL(DB, "Ошибка парсинга payload. type=", static_cast<int>(type), " ошибка=", e.what(), " данные=", json.substr(0, 100));
+        throw;
     }
 }

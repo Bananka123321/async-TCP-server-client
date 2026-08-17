@@ -1,13 +1,17 @@
 #include "../include/ClientSession.h"
+#include "../include/Logger.h"
 
-ClientSession::ClientSession(const int sock, SSL* ssl) : socket_(sock), user_id_(0), ssl_(ssl), isAuthenticated_(false),
-    last_activity_time_(
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::system_clock::now().time_since_epoch()).
-        count()) {
+ClientSession::ClientSession(const int sock, SSL* ssl)
+    : socket_(sock), user_id_(0), ssl_(ssl), isAuthenticated_(false),
+      last_activity_time_(
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::system_clock::now().time_since_epoch()).count()) {
+    LOG_INFO(SESSION, "Создана новая сессия. socket_fd=", socket_);
 }
 
 ClientSession::~ClientSession() {
+    LOG_INFO(SESSION, "Уничтожение сессии. userId=", user_id_, " username=", username_);
+
     if (ssl_) {
         SSL_shutdown(ssl_);
         SSL_free(ssl_);
@@ -28,14 +32,28 @@ int ClientSession::getUserId() const {
 }
 
 bool ClientSession::send(const std::string& message) const {
-    return PacketIO_Server::sendPacket(ssl_, message);
-}   
+    const bool result = PacketIO_Server::sendPacket(ssl_, message);
+    if (!result) {
+        LOG_WARNING(NETWORK, "Ошибка отправки данных клиенту. userId=", user_id_, " размер=", message.size());
+    } else {
+        LOG_DEBUG(NETWORK, "Отправлено данных клиенту. userId=", user_id_, " размер=", message.size());
+    }
+    return result;
+}
 
 bool ClientSession::receive(std::string& message) const {
-    return PacketIO_Server::recvPacket(ssl_, message);
+    const bool result = PacketIO_Server::recvPacket(ssl_, message);
+    if (!result) {
+        LOG_WARNING(NETWORK, "Ошибка получения данных от клиента. userId=", user_id_);
+    } else {
+        LOG_DEBUG(NETWORK, "Получено данных от клиента. userId=", user_id_, " размер=", message.size());
+    }
+    return result;
 }
 
 void ClientSession::setUser(const int new_id, const std::string& new_username) {
+    LOG_INFO(AUTH, "Авторизация сессии. socket_fd=", socket_, " userId=", new_id, " username=", new_username);
+
     username_ = new_username;
     user_id_ = new_id;
 }
@@ -45,7 +63,10 @@ bool ClientSession::getIsAuthenticated() const {
 }
 
 void ClientSession::setIsAuthenticated(const bool value) {
-    isAuthenticated_ = value;
+    if (isAuthenticated_ != value) {
+        LOG_INFO(AUTH, "Изменение статуса авторизации. userId=", user_id_, " новое значение=", (value ? "true" : "false"));
+        isAuthenticated_ = value;
+    }
 }
 
 int64_t ClientSession::getLastActivity() const {
@@ -61,7 +82,10 @@ bool ClientSession::getConnected() const {
 }
 
 void ClientSession::setConnected(const bool newState) {
-    connected_.store(newState);
+    if (const bool oldState = connected_.load(std::memory_order_relaxed); oldState != newState) {
+        LOG_INFO(SESSION, "Изменение состояния подключения. userId=", user_id_, " новое состояние=", (newState ? "connected" : "disconnected"));
+        connected_.store(newState);
+    }
 }
 
 std::string ClientSession::getTempToken() const {
@@ -69,5 +93,6 @@ std::string ClientSession::getTempToken() const {
 }
 
 void ClientSession::setTempToken(const std::string& newToken) {
+    LOG_DEBUG(AUTH, "Установка временного токена. userId=", user_id_);
     tempToken_ = newToken;
 }

@@ -1,4 +1,5 @@
 #include "TcpClient.h"
+#include "Logging.h"
 
 #ifdef Q_OS_ANDROID
 const QString IPADRESS_dev = "192.168.0.182";
@@ -8,9 +9,11 @@ const QString IPADRESS_dev = "127.0.0.1";
 
 const QString IPADRESS_dep = "31.192.108.37";
 
-TCPClient::TCPClient(int port, Router* msgRouter) : port_(port), router_(msgRouter), socket_(nullptr), bConnected(false) {}
+TCPClient::TCPClient(int port, Router* msgRouter)
+    : port_(port), router_(msgRouter), socket_(nullptr), bConnected(false), reconnectDelay_(1000) {}
 
 TCPClient::~TCPClient() {
+    qCDebug(logTcp) << "Уничтожение TCPClient";
     disconnect();
     if(reconnectTimer_) {
         reconnectTimer_->deleteLater();
@@ -19,14 +22,19 @@ TCPClient::~TCPClient() {
 
 bool TCPClient::start() {
     if (socket_ && socket_->state() == QAbstractSocket::ConnectedState) {
+        qCDebug(logTcp) << "start() вызван, но сокет уже подключен. Пропускаем.";
         return true;
     }
 
+    qCInfo(logTcp) << "Инициализация подключения...";
     return setupSocket();
 }
 
 bool TCPClient::setupSocket() {
+    qCInfo(logTcp) << "Настройка сокета. Цель:" << IPADRESS_dev << ":" << port_;
+
     if(socket_) {
+        qCDebug(logTcp) << "Старый сокет существует, очищаем его";
         socket_->disconnectFromHost();
         socket_->deleteLater();
         socket_ = nullptr;
@@ -40,9 +48,8 @@ bool TCPClient::setupSocket() {
     connect(socket_, QOverload<const QList<QSslError>&>::of(&QSslSocket::sslErrors), this, &TCPClient::onSslErrors);
 
     connect(socket_, &QAbstractSocket::errorOccurred, this, [this](QAbstractSocket::SocketError error) {
-        qWarning() << "Socket error:" << error << socket_->errorString() << '\n';
+        qCWarning(logTcp) << "Ошибка сокета:" << error << "|" << socket_->errorString();
         bConnected.store(false);
-
         reconnect();
     });
 
@@ -56,8 +63,9 @@ bool TCPClient::setupSocket() {
 }
 
 void TCPClient::onEncrypted() {
+    qCInfo(logTcp) << "TLS-соединение успешно установлено!";
     bConnected.store(true);
-    router_->setSSL(socket_);
+    router_->setSocket(socket_);
 
     reconnectDelay_ = 1000;
 
@@ -66,9 +74,13 @@ void TCPClient::onEncrypted() {
 
 void TCPClient::onReadyRead() {
     QByteArray newData = socket_->readAll();
+
+    qCDebug(logTcp) << "Получено новых данных:" << newData.size() << "байт";
+
     m_buffer.append(newData);
 
     while (auto packet = PacketIO_Client::extractPacket(m_buffer)) {
+        qCDebug(logTcp) << "Успешно извлечён пакет из буфера";
         if (onMessage) {
             onMessage(*packet);
         }
@@ -76,29 +88,35 @@ void TCPClient::onReadyRead() {
 }
 
 void TCPClient::onDisconnected() {
+    qCWarning(logTcp) << "Соединение разорвано. Причина: " << (socket_ ? socket_->errorString() : " сокет уже уничтожен");
+
     bConnected.store(false);
+    router_->setSocket(nullptr);
 
-    router_->setSSL(nullptr);
-
-    socket_->deleteLater();
-    socket_ = nullptr;
+    if(socket_) {
+        socket_->deleteLater();
+        socket_ = nullptr;
+    }
 
     emit connectionLose();
 }
 
 void TCPClient::onSslErrors(const QList<QSslError> &errors) {
+    qCWarning(logTcp) << "Обнаружены ошибки SSL при рукопожатии:";
     for (const auto &error : errors) {
-        qWarning() << "  -" << error.errorString();
+        qCWarning(logTcp) << "   -" << error.errorString();
     }
     socket_->ignoreSslErrors();
 }
 
 void TCPClient::disconnect() {
     if (!bConnected.load() || !socket_) {
+        qCDebug(logTcp) << "disconnect() вызван, но сокет уже неактивен. Ничего не делаем.";
         return;
     }
 
-    router_->setSSL(nullptr);
+    qCInfo(logTcp) << "Принудительное отключение сокета";
+    router_->setSocket(nullptr);
 
     socket_->disconnectFromHost();
 
@@ -106,28 +124,33 @@ void TCPClient::disconnect() {
         socket_->waitForDisconnected(1000);
     }
 
-    socket_->deleteLater();
-    socket_ = nullptr;
+    if(socket_) {
+        socket_->deleteLater();
+        socket_ = nullptr;
+    }
+
     bConnected.store(false);
 }
 
 bool TCPClient::isConnected() const {
-    bool result = bConnected.load() && socket_ && socket_->state() == QAbstractSocket::ConnectedState;
-    return result;
+    return bConnected.load() && socket_ && socket_->state() == QAbstractSocket::ConnectedState;
 }
 
 void TCPClient::reconnect() {
     if(reconnectTimer_ && reconnectTimer_->isActive()) {
+        qCDebug(logTcp) << "Таймер переподключения уже активен, пропускаем вызов reconnect()";
         return;
     }
 
     if(!reconnectTimer_) {
         reconnectTimer_ = new QTimer(this);
         reconnectTimer_->setSingleShot(true);
-
         connect(reconnectTimer_, &QTimer::timeout, this, &TCPClient::start);
     }
 
+    qCInfo(logTcp) << "Переподключение запланировано через" << reconnectDelay_ << "мс";
+
     reconnectTimer_->start(reconnectDelay_);
+
     reconnectDelay_ = std::min(reconnectDelay_ * 2, MAX_RECONNECT_TIME_MS);
 }

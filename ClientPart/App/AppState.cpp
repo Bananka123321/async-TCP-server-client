@@ -1,14 +1,22 @@
 #include "AppState.h"
+#include "Logging.h"
 
 AppState::AppState(QObject* parent) : QObject(parent), settings_("IvanMessenger", "ClientConfig") {
+    qCDebug(logState) << "Инициализация AppState. Загрузка данных из QSettings";
+
     sessionToken_ = settings_.value("sessionToken", "").toString();
     user_.user_id = settings_.value("userId", -1).toInt();
     user_.username = settings_.value("username", "").toString().toStdString();
     connectionStatus_ = ConnectionState::Disconnected;
+
+    qCInfo(logState) << "Загружена сессия: userId=" << user_.user_id
+                     << "username=" << QString::fromStdString(user_.username)
+                     << "hasToken=" << !sessionToken_.isEmpty();
 }
 
 
 void AppState::setUsers(const std::unordered_map<int, std::string>& newUsers) {
+    qCDebug(logState) << "Обновление списка пользователей. Количество:" << newUsers.size();
     users_ = newUsers;
     emit usersChanged(users_);
 }
@@ -22,6 +30,7 @@ QString AppState::getCurrentUsername() const {
 }
 
 void AppState::setCurrentUsername(const QString& login) {
+    qCDebug(logState) << "Изменение username:" << login;
     user_.username = login.toStdString();
     emit usernameChanged();
 }
@@ -31,6 +40,7 @@ int AppState::getCurrentUserId() const {
 }
 
 void AppState::setCurrentUserId(const int user_id) {
+    qCDebug(logState) << "Изменение userId:" << user_id;
     user_.user_id = user_id;
     emit userIdChanged();
 }
@@ -40,6 +50,7 @@ std::string AppState::getUsernameByUserId(const int id) const {
     if (it != users_.end())
         return it->second;
 
+    qCDebug(logState) << "Пользователь с id=" << id << "не найден в списке";
     return "Unknown";
 }
 
@@ -48,6 +59,7 @@ QString AppState::getSessionToken() const {
 }
 
 void AppState::setSessionToken(const std::string& token) {
+    qCDebug(logState) << "Установка sessionToken. Длина:" << token.length();
     sessionToken_ = QString::fromStdString(token);
     emit sessionTokenChanged();
 }
@@ -57,6 +69,7 @@ std::string AppState::getConnectionToken() const {
 }
 
 void AppState::setConnectionToken(const std::string& token) {
+    qCDebug(logState) << "Установка connectionToken. Длина:" << token.length();
     connectionToken_ = token;
 }
 
@@ -68,11 +81,17 @@ void AppState::setConnectionStatus(ConnectionState newStatus) {
     if(newStatus == connectionStatus_) {
         return;
     }
+
+    qCInfo(logState) << "Изменение статуса соединения:" << static_cast<int>(connectionStatus_)
+                     << "->" << static_cast<int>(newStatus);
+
     connectionStatus_ = newStatus;
     emit connectionStateChanged(newStatus);
 }
 
 void AppState::saveSession(const QString& token, int id, const QString& name) {
+    qCInfo(logAuth) << "Сохранение сессии: userId=" << id << "username=" << name;
+
     sessionToken_ = token;
     user_.user_id = id;
     user_.username = name.toStdString();
@@ -81,12 +100,16 @@ void AppState::saveSession(const QString& token, int id, const QString& name) {
     settings_.setValue("userId", id);
     settings_.setValue("username", name);
 
+    qCDebug(logAuth) << "Сессия записана в QSettings";
+
     emit sessionTokenChanged();
     emit userIdChanged();
     emit usernameChanged();
 }
 
 void AppState::clearSession() {
+    qCInfo(logAuth) << "Очистка сессии. Удаление данных из QSettings";
+
     sessionToken_ = "";
     user_.user_id = -1;
     user_.username = "";
@@ -101,5 +124,7 @@ void AppState::clearSession() {
 }
 
 bool AppState::hasSession() const {
-    return !sessionToken_.isEmpty() && user_.user_id != -1;
+    bool has = !sessionToken_.isEmpty() && user_.user_id != -1;
+    qCDebug(logState) << "Проверка наличия сессии:" << (has ? "да" : "нет");
+    return has;
 }

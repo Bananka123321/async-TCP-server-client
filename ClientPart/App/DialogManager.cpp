@@ -1,24 +1,32 @@
 #include "DialogManager.h"
+#include "Logging.h"
 #include <QTimer>
 
-DialogManager::DialogManager(Handler* handler, AppState* state) : handler_(handler), state_(state) {}
+DialogManager::DialogManager(Handler* handler, AppState* state) : handler_(handler), state_(state) {
+    qCDebug(logDialog) << "Инициализация DialogManager";
+}
 
 void DialogManager::start() {
+    qCInfo(logDialog) << "Запуск DialogManager. Подключение сигналов";
+
     connect(handler_, &Handler::S_Message, this, [this](const Message& msg) {
         addMessage(msg.dialog_id, msg);
     });
 
     connect(handler_, &Handler::S_UserSearch, this, [this](const std::vector<User>& users) {
+        qCInfo(logDialog) << "Получены результаты поиска пользователей. Количество:" << users.size();
         emit findUsers(users);
     });
 
     connect(handler_, &Handler::S_HistoryLoaded, this, [this](int64_t dialog_id, const std::vector<Message>& messages) {
+        qCInfo(logDialog) << "Загружена история диалога:" << dialog_id << "сообщений:" << messages.size();
         if (messages.empty()) return;
         prependHistory(dialog_id, messages);
         emit historyLoaded(dialog_id, messages);
     });
 
     connect(handler_, &Handler::S_DialogsLoaded, this, [this](const std::vector<MetaDialog_Client>& dialogs) {
+        qCInfo(logDialog) << "Загружен список диалогов. Количество:" << dialogs.size();
         dialogsLoaded(dialogs);
     });
 }
@@ -36,11 +44,17 @@ void DialogManager::addMessage(int64_t dialog_id, const Message& msg) {
             dialog_data.messages.begin(),
             dialog_data.messages.end(),
             [&msg](const Message& m) { return m.id == msg.id; }
-        );
+            );
 
         if (!exists) {
             dialog_data.messages.push_back(msg);
             needUpdateMessages = true;
+            qCDebug(logDialog) << "Новое сообщение в диалоге:" << dialog_id
+                               << "msg_id=" << msg.id
+                               << "всего сообщений:" << dialog_data.messages.size();
+        } else {
+            qCDebug(logDialog) << "Дубликат сообщения msg_id=" << msg.id
+                               << "в диалоге:" << dialog_id << ". Пропущено";
         }
 
         dialog_data.meta.last_msg_preview = msg.getPreview();
@@ -59,6 +73,7 @@ const std::vector<Message>* DialogManager::getMessages(int64_t dialog_id) const 
     QMutexLocker locker(&mtx_);
     auto it = data_.find(dialog_id);
     if(it != data_.end()) return &it->second.messages;
+    qCDebug(logDialog) << "Запрос сообщений для несуществующего диалога:" << dialog_id;
     return nullptr;
 }
 
@@ -66,6 +81,7 @@ void DialogManager::prependHistory(int64_t dialog_id, const std::vector<Message>
     QMutexLocker locker(&mtx_);
     auto& dialog = data_[dialog_id];
 
+    int addedCount = 0;
     for (const auto& newMsg : messages) {
         bool exists = std::any_of(
             dialog.messages.begin(), dialog.messages.end(),
@@ -73,9 +89,16 @@ void DialogManager::prependHistory(int64_t dialog_id, const std::vector<Message>
                 return newMsg.id == cachedMsg.id;
             });
 
-        if (!exists)
+        if (!exists) {
             dialog.messages.insert(dialog.messages.begin(), newMsg);
-    };
+            addedCount++;
+        }
+    }
+
+    qCDebug(logDialog) << "Добавлено в историю диалога:" << dialog_id
+                       << "новых:" << addedCount
+                       << "из" << messages.size()
+                       << "всего:" << dialog.messages.size();
 }
 
 void DialogManager::setHistory(int64_t dialog_id, const std::vector<Message>& messages) {
@@ -89,6 +112,9 @@ void DialogManager::setHistory(int64_t dialog_id, const std::vector<Message>& me
         dialog.meta.last_msg_timestamp = messages.back().created_at_ms;
     }
 
+    qCInfo(logDialog) << "История диалога полностью заменена:" << dialog_id
+                      << "сообщений:" << messages.size();
+
     updateDialog(dialog_id);
 }
 
@@ -99,7 +125,7 @@ std::vector<MetaDialog_Client> DialogManager::getDialogs() const {
 
     for (const auto& [dialog_id, dialog] : data_) {
         result.push_back(dialog.meta);
-    };
+    }
 
     std::sort(result.begin(), result.end(), [](const MetaDialog_Client& a, const MetaDialog_Client& b){
         return a.last_msg_timestamp > b.last_msg_timestamp;
@@ -114,6 +140,7 @@ void DialogManager::updateDialog(int64_t dialog_id) {
         data_[dialog_id].meta.last_msg_timestamp = now();
     }
 
+    qCDebug(logDialog) << "Обновлены метаданные диалога:" << dialog_id;
     emit dialogsUpdated();
 }
 
@@ -129,6 +156,9 @@ void DialogManager::dialogsLoaded(const std::vector<MetaDialog_Client>& dialogs)
             data_[d.dialog_id].meta = d;
             users[d.peer_id] = d.username;
         }
+
+        qCInfo(logDialog) << "Список диалогов загружен в кэш. Диалогов:" << dialogs.size()
+                          << "уникальных пользователей:" << users.size();
 
         state_->setUsers(users);
     }
