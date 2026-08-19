@@ -20,17 +20,17 @@ int main() {
         return 1;
     }
 
-    TcpServer server(Config::getServer().port);
+    auto server = std::make_shared<TcpServer>(Config::getServer().port);
 
     std::thread serverThread([&server](){
-        if (!server.start())
+        if (!server->start())
             std::cerr << "Server failed to start\n";
     });
 
     while(!SignalHandler::s_isShutdownRequested())
         pause();
 
-    server.stop();
+    server->stop();
 
     if(serverThread.joinable())
         serverThread.join();

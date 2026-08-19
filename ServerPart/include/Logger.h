@@ -8,14 +8,14 @@
 #include <iomanip>
 #include <sstream>
 
-enum class LogLevel {
+enum class LogLevel : uint8_t {
     DEBUG = 0,
     INFO = 1,
     WARNING = 2,
     CRITICAL = 3
 };
 
-enum class LogCategory {
+enum class LogCategory : uint8_t {
     SESSION,
     NETWORK,
     AUTH,
@@ -86,8 +86,8 @@ private:
     Logger() = default;
     
     std::mutex mutex_;
-    LogLevel minLevel_ = LogLevel::DEBUG;
     std::unordered_set<std::string> enabledCategories_;
+    LogLevel minLevel_ = LogLevel::DEBUG;
     bool allCategoriesEnabled_ = false;
 
     static std::string categoryToString(const LogCategory cat) {

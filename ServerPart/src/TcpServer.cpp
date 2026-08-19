@@ -158,7 +158,10 @@ void TcpServer::run() {
         auto client = std::make_shared<ClientSession>(clientSocket, ssl);
         client->setConnected(true);
 
-        std::thread(&TcpServer::handleClient, this, client).detach();
+        auto self = shared_from_this();
+        std::thread([self, client](){
+            self->handleClient(client);
+        }).detach();
     }
 
     LOG_INFO(MAIN, "Цикл принятия подключений остановлен");

@@ -2,10 +2,10 @@
 #include "../include/Logger.h"
 
 ClientSession::ClientSession(const int sock, SSL* ssl)
-    : socket_(sock), user_id_(0), ssl_(ssl), isAuthenticated_(false),
-      last_activity_time_(
+    : ssl_(ssl), last_activity_time_(
           std::chrono::duration_cast<std::chrono::milliseconds>(
-              std::chrono::system_clock::now().time_since_epoch()).count()) {
+              std::chrono::system_clock::now().time_since_epoch()).count()), socket_(sock), user_id_(0),
+      isAuthenticated_(false) {
     LOG_INFO(SESSION, "Создана новая сессия. socket_fd=", socket_);
 }
 

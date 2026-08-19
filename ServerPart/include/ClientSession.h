@@ -34,12 +34,12 @@ public:
     bool receive(std::string& message) const;
 
 private:
-    int socket_;
-    int user_id_;
     std::string username_;
     std::string tempToken_;
     SSL* ssl_;
-    std::atomic<bool> isAuthenticated_;
     std::atomic<int64_t> last_activity_time_{0};
+    int socket_;
+    int user_id_;
+    std::atomic<bool> isAuthenticated_;
     std::atomic<bool> connected_{false};
 };

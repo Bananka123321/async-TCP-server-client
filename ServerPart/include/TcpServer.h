@@ -10,7 +10,7 @@
 #include "DB_TemporaryTokenManager.h"
 
 
-class TcpServer {
+class TcpServer : public std::enable_shared_from_this<TcpServer> {
 public:
     explicit TcpServer(int port);
     ~TcpServer();
@@ -19,18 +19,15 @@ public:
     void stop();
 
 private:
-    int port_;
-    int serverSocket_;
     SSL_CTX* ssl_ctx_;
-
-    std::atomic<bool> serverRunning_{false};
-    std::atomic<bool> monitorRunning_{false};
-
     std::thread monitor_thread_;
-
     SessionManager sessionManager_;
     Handler handler_;
     DB_TemporaryTokenManager temporaryTokenManager_;
+    int port_;
+    int serverSocket_;
+    std::atomic<bool> serverRunning_{false};
+    std::atomic<bool> monitorRunning_{false};
 
     static constexpr int64_t HEARTBEAT_INTERVAL_MS = 30000;
     static constexpr int64_t SESSION_TIMEOUT_MS = 90000;
