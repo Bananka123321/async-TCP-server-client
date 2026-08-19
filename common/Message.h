@@ -32,12 +32,11 @@ enum class MessageType : uint8_t {
 
 struct Message {
     int64_t id = 0;
+    int64_t created_at_ms = 0;
+    MessagePayload payload;
     int dialog_id = 0;
     int sender_id = 0;
     MessageType type = MessageType::Text;
-    int64_t created_at_ms = 0;
-
-    MessagePayload payload;
 
     [[nodiscard]] std::string getPreview() const {
         return std::visit([]<typename T0>(const T0& content) -> std::string {

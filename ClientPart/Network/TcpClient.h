@@ -36,17 +36,14 @@ private slots:
     void onSslErrors(const QList<QSslError> &errors);
 
 private:
-    int port_;
     QSslSocket* socket_ = nullptr;
     Router* router_;
-
     QByteArray m_buffer;
-    std::atomic<bool> bConnected{false};
-
     QTimer* reconnectTimer_ = nullptr;
     int reconnectDelay_ = 1000;
-
+    int port_;
     static constexpr int32_t MAX_RECONNECT_TIME_MS = 30000;
+    std::atomic<bool> bConnected{false};
 
 private:
     bool setupSocket();

@@ -6,6 +6,6 @@
 #include "Message.h"
 
 struct Dialog {
-    int peerId;
     std::vector<Message> messages;
+    int peerId;
 };
